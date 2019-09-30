@@ -6,7 +6,6 @@ from itertools import product
 from rasterio import windows
 import matplotlib.pyplot as plt
 
-
 try:
     xmin, xmax, ymin, ymax = float(sys.argv[1]), float(sys.argv[2]), float(sys.argv[3]), float(sys.argv[4])
     bounding_box = [xmin, xmax, ymin, ymax]  # vllt noch aufräumen
@@ -19,41 +18,36 @@ except:
     sys.exit(1)
 
 
-def search_image(bb, date, prop):
+def search_images(date_x, bb, prop):
     """Searches Satellite-Image for given Boundingbox, Date and Properties
-    :parameter: Boundingbox, Date, Property
-    :return: Satstac.items.Item Object"""
-    search = Search(bbox=bb,
-                    datetime=date,
-                    property=[prop]
-                    # sort={'field'='eo:cloud_cover'}
-                    )
-    return search.items()
-
-
-def search_dates(date_x):
-    """Searches satellite-images for multiple dates for given list of timesteps
-    :parameter: List of singel or range of Dates
+    :parameter: List of Dates/singel Date, Bounding Box as List and Properties as String
     :return: List with satsac.Item Objects for the given Dates"""
+
     images = []
+
 
     # search image for given date or periode of time, always takes the first image
     for date in date_x:
-        image = search_image(bounding_box, date, properties)
+        search = Search(bbox=bb,
+                        datetime=date,
+                        property=[prop]
+                        # sort={'field'='eo:cloud_cover'}
+                        )
+        image = search.items()
         images.append(image[0])
     return images
 
 
-def get_urls(date):
+def get_urls(statsac_item):
     """Searches for the URLS of satellite-images for given date
-    :parameter: List of Dates
+    :parameter: List of satsac.Item Objects
     :returns: List of URLS containing the red and near infared Bands of the satellite-images.
     Order: Green1, Red1, Green2, Red2
     """
     band_urls = []
 
     # extract the urls for the red and near-infared band of the images for the given date or period of time
-    for x in search_dates(date):
+    for x in statsac_item:
         # Check if Sentinel or Landsat
         if 'B3' and 'B4' in x.assets: # change infared and red band for sentinel
             band_red_se = x.assets['B3']['href']
@@ -88,7 +82,7 @@ def calculate_ndvi(red, nir):
 
 
 #file1 = r'https://s3-us-west-2.amazonaws.com/landsat-pds/c1/L8/195/026/LC08_L1GT_195026_20180721_20180721_01_RT/LC08_L1GT_195026_20180721_20180721_01_RT_B4.TIF'
-#file2 = r'https://s3-us-west-2.amazonaws.com/landsat-pds/c1/L8/195/026/LC08_L1GT_195026_20180721_20180721_01_RT/LC08_L1GT_195026_20180721_20180721_01_RT_B5.TIF'
+file2 = r'https://s3-us-west-2.amazonaws.com/landsat-pds/c1/L8/195/026/LC08_L1GT_195026_20180721_20180721_01_RT/LC08_L1GT_195026_20180721_20180721_01_RT_B5.TIF'
 
 
 def optimal_tiled_calc(red, nir):
@@ -98,12 +92,13 @@ def optimal_tiled_calc(red, nir):
     :returns: raster with the calculated ndvi values"""
     # open datasets
     src_red = rio.open(red)
-    src_nir = rio.open(nir)
+    src_nir = rio.open(nir, 'r')
 
     # create outfile and update datatype
     out_profile = src_red.profile.copy()
     out_profile.update({'dtype': 'float64'})
-    dst = rio.open(r'result.tif', 'w', **out_profile)
+    outfile = 'optimal_tiled_calc_ndvi.tif'
+    dst = rio.open(outfile, 'w', **out_profile)
 
     # iterate over internal blocks of the bands, calculate ndvi for each block and put them back together
     for block_index, window in src_red.block_windows(1):
@@ -118,7 +113,7 @@ def optimal_tiled_calc(red, nir):
     src_nir.close()
     dst.close()
     assert isinstance(dst, object)
-    return dst
+    return outfile
 
 
 def get_tiles(ds, tile_a, tile_b):
@@ -133,13 +128,14 @@ def get_tiles(ds, tile_a, tile_b):
     offsets = product(range(0, nols, width), range(0, nrows, height))
     big_window = windows.Window(col_off=0, row_off=0, width=nols, height=nrows)
 
+    # create custom set blocks
     for col_off, row_off in offsets:
         window = windows.Window(col_off=col_off, row_off=row_off, width=width, height=height).intersection(big_window)
         transform = windows.transform(window, ds.transform)
         yield window, transform
 
 
-def customized_tiled_calc(red, nir):
+def customized_tiled_calc(red, nir, tile_size_x, tile_size_y):
     """Tiles a band into blocks with the dimension of tile_a x tile_b, calculates the ndvi of the blocks and and puts
     them back together resulting in a new raster image
     :parameter: filepath for the red and infared band
@@ -151,9 +147,10 @@ def customized_tiled_calc(red, nir):
     # create outfile and update datatype
     meta = src_red.meta.copy()
     meta.update({'dtype': 'float64'})
-    dst = rio.open(r'result.tif', 'w', **meta)
+    outfile = 'customized_tiled_calc_ndvi.tif'
+    dst = rio.open(outfile, 'w', **meta)
 
-    # customized tile calculation
+    # iterate over custom set blocks, calculate ndvi for each block and put the blocks back together
     for window, transform in get_tiles(src_red, tile_size_x, tile_size_y):
         print(window)
         meta['transform'] = transform
@@ -167,7 +164,7 @@ def customized_tiled_calc(red, nir):
     src_red.close()
     src_nir.close()
     dst.close()
-    return dst
+    return outfile
 
 
 def calculate_difference(ndvi_tile1, ndvi_tile2):
@@ -242,3 +239,6 @@ def customized_tiled_difference(ndvi1, ndvi2):
     return difference
 
 #    print("The difference of the NDVIs has been calculated. ndvi_difference.tif has been saved in %s")
+
+
+#optimal_tiled_calc(file1, file2)
