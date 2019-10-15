@@ -1,0 +1,126 @@
+{
+  "dates": [,],
+  "bounding_box": [],
+  "cloud_coverage": 5,
+  "tile_size_x": ,
+  "tile_size_y": ,
+}
+
+
+"""Concurrent read-process-write example"""
+
+
+from Main2 import *
+import concurrent.futures
+from itertools import islice
+from time import sleep
+import numpy as np
+
+import rasterio
+
+
+CHUNK = 100
+
+
+def chunkify(iterable, chunk=CHUNK):
+    it = iter(iterable)
+    while True:
+        piece = list(islice(it, chunk))
+        if piece:
+            yield piece
+        else:
+            return
+
+
+def compute(path, window):
+    """Simulates an expensive computation
+    Gets source data for a window, sleeps, reverses bands.
+    Note: Numpy ufuncs release GIL and are parallelizable.
+    """
+    with rasterio.open(path) as src:
+        data = src.read(window=window)
+    sleep(0.1)
+    return data[::-1]
+
+def calculate_ndvi(red, nir):
+    """Uses a red and near infared band in array-form to claculate the ndvi
+    :parameter: red band and infared band as arrays
+    :returns: array with ndvi values"""
+    band_red = red.astype(float) #datentyp noch ändern
+    band_nir = nir.astype(float)
+    np.seterr(divide='ignore', invalid='ignore')
+
+    # check array sizes
+    assert band_red.shape == band_nir.shape, 'This wont work'
+
+    # create empty array with the same shape as one of the input arrays
+    ndvi = np.empty(nir.shape, dtype=rio.float32)# hier auch
+    # No Zeoridivision
+    check = np.logical_or(band_red > 0, band_nir > 0)
+    # fill the empty array with the calculated ndvi values for each cell; -2 is broadcast to fill up the array
+    ndvi = np.where(check, (1.0 * (band_nir - band_red)) / (1.0 * (band_nir + band_red)), -2)
+
+    return ndvi
+
+
+
+
+def tiled_cacl(red, nir, window):
+    with rasterio.open(red) as src_red:
+        with rasterio.open(nir) as src_nir:
+            red_block = src_red.read(window=window, masked=True)
+            nir_block = src_nir.read(window=window, masked=True)
+
+    result_block = calculate_ndvi(red_block, nir_block)
+
+    return result_block
+
+
+def main(infile1, infile2, outfile, max_workers=1):
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+
+        with rasterio.open(infile1) as src_red:
+
+            with rasterio.open(infile2) as src_green:
+                out_profile = src_green.profile.copy()
+                out_profile.update({'dtype': 'float64'})
+
+                with rasterio.open(outfile, "w", **src_green.profile) as dst:
+
+                    windows = [window for ij, window in dst.block_windows()]
+
+                    for chunk in [windows]:  # chunkify(windows):
+
+                        future_to_window = dict()
+
+                        for window in chunk:
+                            future = executor.submit(tiled_cacl, src_red, src_green, window)
+                            future_to_window[future] = window
+
+                        for future in concurrent.futures.as_completed(future_to_window):
+                            window = future_to_window[future]
+                            result = future.result()
+                            dst.write(result, window=window)
+                            print(dst)
+
+
+if __name__ == "__main__":
+    import sys
+
+    bbox = [8.66744, 49.41217, 8.68465, 49.42278]
+    date = ['2017-06-01/2017-08-04', '2016-06-01/2016-08-04']
+    property = "eo:cloud_cover<5"
+
+    #image_timestep1 = search_image(date[0], bbox, property)
+    #image_timestep2 = search_image(date[1], bbox, property)
+
+    #urls_timestep1 = get_urls(image_timestep1)
+    #urls_timestep2 = get_urls(image_timestep2)
+
+    with rio.open(r'/Users/Julian/Downloads/ortho_RGBI(1)') as src:
+        red = src.read(1)
+        nir = src.read(4)
+
+    outfile, num = 'test.tif', 4
+    main(urls_timestep2[0], urls_timestep2[1], outfile, max_workers=int(num))

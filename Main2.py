@@ -7,18 +7,6 @@ from rasterio import windows
 import matplotlib.pyplot as plt
 
 
-import multiprocessing as mp
-print("Number of processors: ", mp.cpu_count())
-
-
-search = Search(bbox=[8.66744,49.41217,8.68465,49.42278],
-               datetime='2018-06-01/2018-08-04',
-               property=["eo:cloud_cover<5"]
-               )
-
-items = search.items()
-item = items[6]
-
 def search_image(date, bb, prop):
     """Searches Satellite-Image for given Boundingbox, Date and Properties
     :parameter: singel Date or range of Days, Bounding Box as List and Properties as String
@@ -26,19 +14,33 @@ def search_image(date, bb, prop):
 
     image = []
 
-
     # search image for given date or periode of time, always takes the first image
     search = Search(bbox=bb,
                     datetime=date,
                     property=[prop],
-                    sort=[{'field': 'eo:cloud_cover', 'direction': 'desc'}]
+                    sort=[{'field': 'eo:cloud_cover', 'direction': 'asc'}]
                     )
-    items = search.items()
-    image.append(items[-1])
 
+    items = search.items()
+
+    # filter for Landsatimages since Sentinel doesn't work and the collection option for sat-search seems to be broken
+    workaround = [str(item) for item in items]
+    counter = 0
+
+    for z in workaround:
+        if 'S2' in z:
+            counter += 1
+            print(counter)
+            pass
+        else:
+            image.append(items[counter])
+            print(items[counter])
+            break
+
+    # check if image was found
     assert len(image) == 1, 'No Images for given Parameters found. Please try new ones'
 
-    return image
+    return items[counter]
 
 
 def get_urls(statsac_item):
@@ -77,6 +79,9 @@ def calculate_ndvi(red, nir):
     band_nir = nir.astype(float)
     np.seterr(divide='ignore', invalid='ignore')
 
+    # check array sizes
+    assert band_red.shape == band_nir.shape, 'This wont work'
+
     # create empty array with the same shape as one of the input arrays
     ndvi = np.empty(nir.shape, dtype=rio.float32)# hier auch
     # No Zeoridivision
@@ -87,43 +92,61 @@ def calculate_ndvi(red, nir):
     return ndvi
 
 
-red = np.array([[0,0,4],[1,3,5]])
-nir = np.array([[1,2,4],[8,9,7]])
+def calculate_difference(ndvi_tile1, ndvi_tile2):
+    """Calculates the difference between to arrays
+    :parameter: 2 Arrays
+    :return: Array with difference"""
+    tile_1 = ndvi_tile1.astype(float)  # datentyp noch ändern
+    tile_2 = ndvi_tile2.astype(float)
+    ndvi_difference = np.subtract(tile_1, tile_2)
+    return ndvi_difference
 
-ass = calculate_ndvi(red, nir)
-print(ass)
 
-
-
-def optimal_tiled_calc_old(red, nir):
+def optimal_tiled_calc(red_timestep_1, nir_timestep_1, red_timestep_2, nir_timestep_2):
     """Uses the red and near infared band and calcultes the ndvi in optimal tiled blocks and puts them back together
     resulting in a new raster image
     :parameter: filepath for red band and near infared band
     :returns: raster with the calculated ndvi values"""
     # open datasets
-    src_red = rio.open(red)
-    src_nir = rio.open(nir, 'r')
+    src_red_timestep_1 = rio.open(red_timestep_1)
+    src_nir_timestep_1 = rio.open(nir_timestep_1, 'r')
+    src_red_timestep_2 = rio.open(red_timestep_2, 'r')
+    src_nir_timestep_2 = rio.open(nir_timestep_2, 'r')
+
 
     # create outfile and update datatype
-    out_profile = src_red.profile.copy()
+    out_profile = src_red_timestep_1.profile.copy()
     out_profile.update({'dtype': 'float64'})
     outfile = 'optimal_tiled_calc_ndvi.tif'
     dst = rio.open(outfile, 'w', **out_profile)
 
     # iterate over internal blocks of the bands, calculate ndvi for each block and put them back together
-    for block_index, window in src_red.block_windows(1):
-        red_block = src_red.read(window=window, masked=True)
-        nir_block = src_nir.read(window=window, masked=True)
+    for block_index, window in src_red_timestep_1.block_windows(1):
+        # read Data for Timestep1 and calculate NDVI
+        red_tile_timestep_1 = src_red_timestep_1.read(window=window, masked=True)
+        nir_tile_timestep_1 = src_nir_timestep_1.read(window=window, masked=True)
+        ndvi_tile_timestep_1 = calculate_ndvi(red_tile_timestep_1, nir_tile_timestep_1)
 
-        result_block = calculate_ndvi(red_block, nir_block)
-        dst.write(result_block, window=window)
+        # read Data for Timestep2 and calculate NDVI
+        red_tile_timestep_2 = src_red_timestep_2.read(window=window, masked=True)
+        nir_tile_timestep_2 = src_nir_timestep_2.read(window=window, masked=True)
+        ndvi_tile_timestep_2 = calculate_ndvi(red_tile_timestep_2, nir_tile_timestep_2)
+
+        # check if both arrays have the same size
+        assert ndvi_tile_timestep_1.shape == ndvi_tile_timestep_1.shape
+
+        # Calculate difference between Timestep1 and Timestep2
+        result_tile = calculate_difference(ndvi_tile_timestep_1, ndvi_tile_timestep_2)
+
+        # Write Result into new Raster-File
+        dst.write(result_tile, window=window)
         print(dst)
-    # close dataset
-    src_red.close()
-    src_nir.close()
+
+    # close datasets
+    src_red_timestep_1.close()
+    src_nir_timestep_1.close()
     dst.close()
     assert isinstance(dst, object)
-    return outfile
 
 
 def get_tiles(ds, tile_a, tile_b):
@@ -145,113 +168,50 @@ def get_tiles(ds, tile_a, tile_b):
         yield window, transform
 
 
-def customized_tiled_calc(red, nir, tile_size_x, tile_size_y):
+def customized_tiled_calc(red_timestep_1, nir_timestep_1, red_timestep_2, nir_timestep_2, tile_size_x, tile_size_y):
     """Tiles a band into blocks with the dimension of tile_a x tile_b, calculates the ndvi of the blocks and and puts
     them back together resulting in a new raster image
     :parameter: filepath for the red and infared band
     :returns:  raster with the calculated ndvi values """
     # open datasets
-    src_red = rio.open(red)
-    src_nir = rio.open(nir)
+    src_red_timestep_1 = rio.open(red_timestep_1)
+    src_nir_timestep_1 = rio.open(nir_timestep_1, 'r')
+    src_red_timestep_2 = rio.open(red_timestep_2, 'r')
+    src_nir_timestep_2 = rio.open(nir_timestep_2, 'r')
 
     # create outfile and update datatype
-    meta = src_red.meta.copy()
+    meta = src_red_timestep_1.meta.copy()
     meta.update({'dtype': 'float64'})
     outfile = 'customized_tiled_calc_ndvi.tif'
     dst = rio.open(outfile, 'w', **meta)
 
     # iterate over custom set blocks, calculate ndvi for each block and put the blocks back together
-    for window, transform in get_tiles(src_red, tile_size_x, tile_size_y):
-        print(window)
+    for window, transform in get_tiles(src_red_timestep_1, tile_size_x, tile_size_y):
         meta['transform'] = transform
         meta['width'], meta['height'] = window.width, window.height
-        red_block = src_red.read(window=window, masked=True)
-        nir_block = src_nir.read(window=window, masked=True)
 
-        result_block = calculate_ndvi(red_block, nir_block)
-        dst.write(result_block, window=window)
+        # read Data for Timestep1 and calculate NDVI
+        red_tile_timestep_1 = src_red_timestep_1(window=window, masked=True)
+        nir_tile_timestep_1 = src_nir_timestep_1(window=window, masked=True)
+        ndvi_tile_timestep_1 = calculate_ndvi(red_tile_timestep_1, nir_tile_timestep_1)
 
-    src_red.close()
-    src_nir.close()
+        # read Data for Timestep2 and calculate NDVI
+        red_tile_timestep_2 = src_red_timestep_2(window=window, masked=True)
+        nir_tile_timestep_2 = src_nir_timestep_2(window=window, masked=True)
+        ndvi_tile_timestep_2 = calculate_ndvi(red_tile_timestep_2, nir_tile_timestep_2)
+
+        # check if both arrays have the same size
+        assert ndvi_tile_timestep_1.shape == ndvi_tile_timestep_1.shape
+
+        # Calculate difference between Timestep1 and Timestep2
+        result_tile = calculate_difference(ndvi_tile_timestep_1, ndvi_tile_timestep_2)
+
+        # Write Result into new Raster-File
+        dst.write(result_tile, window=window)
+
+    # close Datasets
+    src_red_timestep_1.close()
+    src_nir_timestep_1.close()
+    src_red_timestep_2.close()
+    src_nir_timestep_2.close()
     dst.close()
-    return outfile
-
-
-def calculate_difference(ndvi_tile1, ndvi_tile2):
-    """Calculates the difference between to arrays
-    :parameter: 2 Arrays
-    :return: Array with difference"""
-    tile_1 = ndvi_tile1.astype(float)  # datentyp noch ändern
-    tile_2 = ndvi_tile2.astype(float)
-    ndvi_difference = np.subtract(tile_1, tile_2)
-    return ndvi_difference
-
-
-def optimal_tiled_difference(ndvi1, ndvi2):
-    """Uses two raster images containing the ndvi value of 2 different points in time and calculates the difference of
-    the two images using optimal tiled blocks and returns a new raster image containing of the ndvi values
-    :parameter: filepath of the to ndvi images (filepath of first scene, filepath of second scene)
-    :returns: raster with the calculated difference"""
-    src_timestep_1 = rio.open(ndvi1)
-    src_timestep_2 = rio.open(ndvi2)
-
-    # create outfile and update datatype
-    out_profile = src_timestep_1.profile.copy()
-    out_profile.update({'dtype': 'float64'})
-    difference = rio.open(r'ndvi_difference.tif', 'w', **out_profile)
-
-    assert len(set(src_timestep_1.block_shapes)) == 1
-
-    # iterate over internal blocks of the bands, calculate the difference for each block and put them back together
-    for block_index, window in src_timestep_1.block_windows(1):
-        time1_block = src_timestep_1.read(window=window, masked=True)
-        time2_block = src_timestep_2.read(window=window, masked=True)
-
-        result_block = calculate_difference(time1_block, time2_block)
-        difference.write(result_block, window=window)
-        print(difference)
-
-    # close datasets
-    src_timestep_1.close()
-    src_timestep_2.close()
-    difference.close()
-    assert isinstance(difference, object)
-    return difference
-
-
-def customized_tiled_difference(ndvi1, ndvi2, tile_size_x, tile_size_y):
-    """Uses two raster images containing the ndvi value of 2 different points in time and calculates the difference of
-        the two images using customized tiled blocks and returns a new raster image containing of the ndvi values
-        :parameter: filepath of the ndvi images (filepath of first scene, filepath of second scene)
-        :returns: raster with the calculated difference"""
-    src_timestep_1 = rio.open(ndvi1)
-    src_timestep_2 = rio.open(ndvi2)
-
-    # create outfile and update datatype
-    meta = src_timestep_1.meta.copy()
-    meta.update({'dtype': 'float64'})
-    difference = rio.open(r'ndvi_difference.tif', 'w', **meta)
-
-    # customized tile calculation
-    for window, transform in get_tiles(src_timestep_1, tile_size_x, tile_size_y):
-        print(window)
-        meta['transform'] = transform
-        meta['width'], meta['height'] = window.width, window.height
-        time1_block = src_timestep_1.read(window=window, masked=True)
-        time2_block = src_timestep_2.read(window=window, masked=True)
-
-        result_block = calculate_difference(time1_block, time2_block)
-        difference.write(result_block, window=window)
-
-    src_timestep_1.close()
-    src_timestep_2.close()
-    difference.close()
-    return difference
-
-
-
-
-#    print("The difference of the NDVIs has been calculated. ndvi_difference.tif has been saved in %s")
-
-
-#optimal_tiled_calc(file1, file2)
