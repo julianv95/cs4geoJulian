@@ -5,22 +5,23 @@ import rasterio as rio
 from itertools import product
 from rasterio import windows
 import concurrent.futures
-import threading
-from itertools import islice
-
-from rasterio._example import compute
-
-import matplotlib.pyplot as plt
 
 
+# search sources
 def search_image(date, bb, prop):
     """Searches Satellite-Image for given Boundingbox, Date and Properties
-    :parameter: singel Date or range of Days, Bounding Box as List and Properties as String
-    :return: List containing statsac.Item Object with the lowest cloud-coverage for the given Date"""
+    :parameter:
+    singel Date,
+    Bounding Box as List
+    Properties as String
+    :return:
+    statsac.Item Object with the lowest
+    cloud-coverage for the given Date"""
 
     image = []
 
-    # search image for given date or periode of time, always takes the first image
+    # search image for given date or periode of time,
+    # always takes the first image
     search = Search(bbox=bb,
                     datetime=date,
                     property=[prop],
@@ -29,7 +30,8 @@ def search_image(date, bb, prop):
 
     items = search.items()
 
-    # filter for Landsatimages since Sentinel doesn't work and the collection option for sat-search seems to be broken
+    # filter for Landsatimages since Sentinel doesn't work and the
+    # collection option for sat-search seems to be broken
     workaround = [str(item) for item in items]
     counter = 0
 
@@ -42,15 +44,18 @@ def search_image(date, bb, prop):
             break
 
     # check if image was found
-    assert len(image) == 1, 'No Images for given Parameters found. Please try new ones'
+    assert len(image) == 1, 'No Images for given Parameters found. ' \
+                            'Please try new ones'
 
     return items[counter]
 
 
 def get_urls(statsac_item):
     """Searches for the URLS of satellite-images for given date
-    :parameter: List of satsac.Item Objects
-    :returns: List of URLS containing the red and near infared Bands of the satellite-images.
+    :parameter:
+    satsac.Item Object
+    :returns:
+    List of URLS containing the red and near infared Bands of the satellite-images.
     Order: RED, NIR
     """
     band_urls = []
@@ -68,18 +73,20 @@ def get_urls(statsac_item):
         band_urls.append(band_red_se)
         band_urls.append(band_nir_se)
     else:
-        #raise wenn kein band ausgewählt wurde bzw. keine daten für den Termin vorliegen
         print('No red or near infared Band available')
         sys.exit(1)
     assert len(band_urls) == 2, 'No Red or Nir-Band found. Please check the sources or try new Parameters'
     return band_urls
 
 
+# Concurrent Processing Functions
 def calculate_ndvi(red, nir):
     """Uses a red and near infared band in array-form to claculate the ndvi
-    :parameter: red band and infared band as arrays
+    :parameter:
+    red band as array
+    infared band as array
     :returns: array with ndvi values"""
-    band_red = red.astype(rio.float32) #datentyp noch ändern
+    band_red = red.astype(rio.float32)
     band_nir = nir.astype(rio.float32)
     np.seterr(divide='ignore', invalid='ignore')
 
@@ -91,7 +98,6 @@ def calculate_ndvi(red, nir):
     check = np.logical_or(band_red > 0, band_nir > 0)
     # fill the empty array with the calculated ndvi values for each cell where red and nir > 0 otherwise fill up with -2
     ndvi = np.where(check, (1.0 * (band_nir - band_red)) / (1.0 * (band_nir + band_red)), -2)
-    print(ndvi.shape)
 
     return ndvi
 
@@ -99,17 +105,19 @@ def calculate_ndvi(red, nir):
 def calculate_difference(ndvi_tile1, ndvi_tile2):
     """Calculates the difference between to arrays
     :parameter: 2 Arrays
-    :return: Array with difference"""
-    tile_1 = ndvi_tile1.astype(rio.float32)  # datentyp noch ändern
+    :return: Numppy array with difference"""
+    tile_1 = ndvi_tile1.astype(rio.float32)
     tile_2 = ndvi_tile2.astype(rio.float32)
     ndvi_difference = np.subtract(tile_1, tile_2)
     return ndvi_difference
 
 
-# Concurrent Processing Functions
 def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window):
-    """Calculates the difference of NDVI between to image tiles
-    :parameter: List for each Date containing the urls for the red and nir band, the windows for tiling
+    """Calculates the difference of the NDVI
+    between to image tiles.
+    :parameter:
+    List for each Date containing the urls for the red and nir band,
+    the windows for tiling
     :returns: Numpy-Array containing the difference of the two tiles"""
 
     # open red band and read window of timestep1
@@ -143,21 +151,28 @@ def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window):
     return result_block
 
 
-def parallel_chunky(statsac_item_ts1, statsac_item_ts2, outfile, max_workers=1):
-    """Calculates the difference of the NDVI between 2 points in time. Creates a new raster-image which contains the
-    ndvi-difference. Uses optimal tiles and concurrent processing
-    :parameter: Statsac-Item Object of date x, Statsac-Item object of date y, Name of outfile, Number of Processors"""
+# optimal tiling
+def optimal_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile, max_workers=1):
+    """Process infiles block-by-block, calculate the NDVI for each block,
+    and write the difference to a new file. Uses Optimal block-size.
+    :parameter:
+    Statsac-Item Object of date x,
+    Statsac-Item object of date y,
+    Name of outfile,
+    Number of Processors"""
 
     # get the urls for the red and nir bands for timestep1 and 2
     urls_timestep1 = get_urls(statsac_item_ts1)
     urls_timestep2 = get_urls(statsac_item_ts2)
 
     # start with concurrent processing
-    # source: https://gist.github.com/sgillies/b90a79917d7ec5ca0c074b5f6f4857e3.js. This was adapted for the ndvi
-    # processing
+    # source: https://gist.github.com/sgillies/b90a79917d7ec5ca0c074b5f6f4857e3.js.
+    # This was adapted for the ndvi processing
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
 
-        # open red band from timestep 1 as source and create outprofile for result tif
+        # Create a destination dataset based on source params. The
+        # destination will be tiled, and tiles will be processed
+        # concurrently.
         with rio.open(urls_timestep1[0]) as src_red:
             out_profile = src_red.profile.copy()
             out_profile.update({'dtype': 'float32'})
@@ -184,69 +199,81 @@ def parallel_chunky(statsac_item_ts1, statsac_item_ts2, outfile, max_workers=1):
 
 # Customized Tiles Functions
 def get_tiles(ds, tile_a, tile_b):
-    """Tiles a band into blocks with the dimension of tile_a x tile_b
-    :parameter: Band, tile-width and tile-height
-    :returns: rasterio window """
+    """Creates windows for a given Band with the size of
+    tile_a x tile_b
+    :parameter:
+    Open Source,
+    tile-width in m,
+    tile-height in m,
+    :returns:
+    rasterio window """
+
     # calculate Width and Height as Distance from Origin
     x, y = (ds.bounds.left + tile_a, ds.bounds.top - tile_b)
     height, width = ds.index(x, y)
 
+    # get max rows and cols of dataset
     nols, nrows = ds.meta['width'], ds.meta['height']
+    # create offset for the window processing
     offsets = product(range(0, nols, width), range(0, nrows, height))
+    # create big_window around the whole dataset
     big_window = windows.Window(col_off=0, row_off=0, width=nols, height=nrows)
 
     # create custom set blocks
     for col_off, row_off in offsets:
+        # get windows with the custom parameters until it intersects with
+        # the boundaries of the source dataset
         window = windows.Window(col_off=col_off, row_off=row_off, width=width, height=height).intersection(big_window)
         transform = windows.transform(window, ds.transform)
         yield window, transform
 
 
-def customized_tiled_calc(red_timestep_1, nir_timestep_1, red_timestep_2, nir_timestep_2, tile_size_x, tile_size_y):
-    """Tiles a band into blocks with the dimension of tile_a x tile_b, calculates the ndvi of the blocks and and puts
-    them back together resulting in a new raster image
-    :parameter: filepath for the red and infared band
-    :returns:  raster with the calculated ndvi values """
-    # open datasets
-    src_red_timestep_1 = rio.open(red_timestep_1)
-    src_nir_timestep_1 = rio.open(nir_timestep_1, 'r')
-    src_red_timestep_2 = rio.open(red_timestep_2, 'r')
-    src_nir_timestep_2 = rio.open(nir_timestep_2, 'r')
+def customized_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile, tile_size_x, tile_size_y, max_workers=1):
+    """Process infiles block-by-block, calculate the NDVI for each block,
+        and write the difference to a new file. Uses custom block-size.
+        :parameter:
+        Statsac-Item Object of date x,
+        Statsac-Item object of date y,
+        Name of outfile,
+        tile size x,
+        tile size y,
+        Number of Processors"""
 
-    # create outfile and update datatype
-    meta = src_red_timestep_1.meta.copy()
-    meta.update({'dtype': 'float32'})
-    outfile = 'customized_tiled_calc_ndvi.tif'
-    dst = rio.open(outfile, 'w', **meta)
+    # get the urls for the red and nir bands for timestep1 and 2
+    urls_timestep1 = get_urls(statsac_item_ts1)
+    urls_timestep2 = get_urls(statsac_item_ts2)
 
-    # iterate over custom set blocks, calculate ndvi for each block and put the blocks back together
-    for window, transform in get_tiles(src_red_timestep_1, tile_size_x, tile_size_y):
-        meta['transform'] = transform
-        meta['width'], meta['height'] = window.width, window.height
+    # start with concurrent processing
+    # source: https://gist.github.com/sgillies/b90a79917d7ec5ca0c074b5f6f4857e3.js.
+    # This was adapted for the ndvi processing
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Create a destination dataset based on source params. The
+        # destination will be tiled, and tiles will be processed
+        # concurrently.
+        with rio.open(urls_timestep1[0]) as src_red:
+            out_profile = src_red.profile.copy()
+            out_profile.update({'dtype': 'float32'})
+            # open outfile with outprofile
+            with rio.open(outfile, "w", **out_profile) as dst:
+                # create windows for tiling
+                windows = []
 
-        # read Data for Timestep1 and calculate NDVI
-        red_tile_timestep_1 = src_red_timestep_1.read(window=window, masked=True)
-        nir_tile_timestep_1 = src_nir_timestep_1.read(window=window, masked=True)
-        ndvi_tile_timestep_1 = calculate_ndvi(red_tile_timestep_1, nir_tile_timestep_1)
+                for window, transform in get_tiles(src_red, tile_size_x, tile_size_y):
+                    out_profile['transform'] = transform
+                    out_profile['width'], out_profile['height'] = window.width, window.height
+                    windows.append(window)
 
-        # read Data for Timestep2 and calculate NDVI
-        red_tile_timestep_2 = src_red_timestep_2.read(window=window, masked=True)
-        nir_tile_timestep_2 = src_nir_timestep_2.read(window=window, masked=True)
-        ndvi_tile_timestep_2 = calculate_ndvi(red_tile_timestep_2, nir_tile_timestep_2)
+                # chunkify(windows)/ concurrent processing of the tiled_calc_function
+                for chunk in [windows]:
 
-        # check if both arrays have the same size
-        assert ndvi_tile_timestep_1.shape == ndvi_tile_timestep_1.shape
+                    future_to_window = dict()
 
-        # Calculate difference between Timestep1 and Timestep2
-        result_tile = calculate_difference(ndvi_tile_timestep_1, ndvi_tile_timestep_2)
+                    for window in chunk:
+                        future = executor.submit(tiled_cacl_chunky, urls_timestep1, urls_timestep2, window)
+                        future_to_window[future] = window
 
-        # Write Result into new Raster-File
-        dst.write(result_tile, window=window)
-        break
-
-    # close Datasets
-    src_red_timestep_1.close()
-    src_nir_timestep_1.close()
-    src_red_timestep_2.close()
-    src_nir_timestep_2.close()
-    dst.close()
+                    for future in concurrent.futures.as_completed(future_to_window):
+                        window = future_to_window[future]
+                        result = future.result()
+                        dst.write(result, window=window)
+                        print(dst)
