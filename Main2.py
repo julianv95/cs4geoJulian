@@ -4,6 +4,7 @@ import numpy as np
 import rasterio as rio
 from itertools import product
 from rasterio import windows
+from rasterio.enums import Resampling
 import matplotlib.pyplot as plt
 
 
@@ -108,7 +109,7 @@ def optimal_tiled_calc(red_timestep_1, nir_timestep_1, red_timestep_2, nir_times
     :parameter: filepath for red band and near infared band
     :returns: raster with the calculated ndvi values"""
     # open datasets
-    src_red_timestep_1 = rio.open(red_timestep_1)
+    src_red_timestep_1 = rio.open(red_timestep_1, 'r')
     src_nir_timestep_1 = rio.open(nir_timestep_1, 'r')
     src_red_timestep_2 = rio.open(red_timestep_2, 'r')
     src_nir_timestep_2 = rio.open(nir_timestep_2, 'r')
@@ -123,13 +124,43 @@ def optimal_tiled_calc(red_timestep_1, nir_timestep_1, red_timestep_2, nir_times
     # iterate over internal blocks of the bands, calculate ndvi for each block and put them back together
     for block_index, window in src_red_timestep_1.block_windows(1):
         # read Data for Timestep1 and calculate NDVI
-        red_tile_timestep_1 = src_red_timestep_1.read(window=window, masked=True)
-        nir_tile_timestep_1 = src_nir_timestep_1.read(window=window, masked=True)
+        red_tile_timestep_1 = src_red_timestep_1.read(window=window, masked=True,
+                                                      out_shape=(
+                                                          src_red_timestep_2.height,
+                                                          src_red_timestep_2.width,
+                                                          src_red_timestep_2.count),
+                                                      resampling=Resampling.bilinear
+                                                      )
+        print(red_tile_timestep_1.shape)
+
+        nir_tile_timestep_1 = src_nir_timestep_1.read(window=window, masked=True,
+                                                      out_shape=(
+                                                          src_red_timestep_2.height,
+                                                          src_red_timestep_2.width,
+                                                          src_red_timestep_2.count),
+                                                      resampling=Resampling.bilinear
+                                                      )
+        print(nir_tile_timestep_1.shape)
         ndvi_tile_timestep_1 = calculate_ndvi(red_tile_timestep_1, nir_tile_timestep_1)
 
         # read Data for Timestep2 and calculate NDVI
-        red_tile_timestep_2 = src_red_timestep_2.read(window=window, masked=True)
-        nir_tile_timestep_2 = src_nir_timestep_2.read(window=window, masked=True)
+        red_tile_timestep_2 = src_red_timestep_2.read(window=window,
+                                                      masked=True,
+                                                      out_shape=(
+                                                          src_red_timestep_2.height,
+                                                          src_red_timestep_2.width,
+                                                          src_red_timestep_2.count),
+                                                      resampling=Resampling.bilinear
+                                                      )
+        print(red_tile_timestep_1.shape, red_tile_timestep_2.shape)
+        nir_tile_timestep_2 = src_nir_timestep_2.read(window=window,
+                                                      masked=True,
+                                                      out_shape=(
+                                                          src_red_timestep_2.height,
+                                                          src_red_timestep_2.width,
+                                                          src_red_timestep_2.count),
+                                                      resampling=Resampling.bilinear
+                                                      )
         ndvi_tile_timestep_2 = calculate_ndvi(red_tile_timestep_2, nir_tile_timestep_2)
 
         # check if both arrays have the same size

@@ -9,12 +9,15 @@
 
 
 from satsearch import Search
+import os
 import sys
 import numpy as np
 import rasterio as rio
 from itertools import product
 from rasterio import windows
 import concurrent.futures
+from rasterio.enums import Resampling
+
 
 
 # search sources
@@ -138,27 +141,39 @@ def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window):
     with rio.open(urls_timestep1[1]) as src_nir_ts1:
         nir_block_ts1 = src_nir_ts1.read(window=window)
 
+    print(red_block_ts1.shape, nir_block_ts1.shape)
+
     # calculate ndvi for timestep1
     ndvi_ts_1 = calculate_ndvi(red_block_ts1, nir_block_ts1)
-    print('TS1', ndvi_ts_1.shape)
 
-    # open red band and read window of timestep2
-    with rio.open(urls_timestep2[0]) as src_red_ts2:
-        red_block_ts2 = src_red_ts2.read(window=window)
+    with rio.open(urls_timestep2[0]) as src_red_ts2_re:
+        red_block_ts2_re = src_red_ts2_re.read(window=window,
+                                               out_shape=(
+                                                    window.height,
+                                                    window.width,
+                                                    ),
+                                               resampling=Resampling.bilinear
+                                               )
 
-    # open nir band and read window of timestep2
-    with rio.open(urls_timestep2[1]) as src_nir_ts2:
-        nir_block_ts2 = src_nir_ts2.read(window=window)
-
-    # calculate ndvi for timestep2
-    ndvi_ts_2 = calculate_ndvi(red_block_ts2, nir_block_ts2)
-    print('TS2', ndvi_ts_2.shape)
+    with rio.open(urls_timestep2[1]) as src_nir_ts2_re:
+        nir_block_ts2_re = src_nir_ts2_re.read(window=window,
+                                               out_shape=(
+                                                    window.height,
+                                                    window.width,
+                                                    ),
+                                               resampling=Resampling.bilinear
+                                               )
+    print(red_block_ts2_re.shape)
+    print(nir_block_ts2_re.shape)
+    ndvi_ts_2 = calculate_ndvi(red_block_ts2_re, nir_block_ts2_re)
 
     # check if both arrays have the same size
     assert ndvi_ts_1.shape == ndvi_ts_2.shape
 
     # calculate difference between timestep1 and 2
     result_block = calculate_difference(ndvi_ts_1, ndvi_ts_2)
+
+
 
     return result_block
 
