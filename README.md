@@ -1,7 +1,7 @@
 # cs4geoJulian
 Tiled NDVI Calculation
 
-This Script calculates the difference between the NDVI of two different points in time using
+This Script calculates the difference of the NDVI of an area of interesst between two different points in time using
 concurrent and tiled image processing. For the Image-Search the Sat-Search-API is used.
 
 To use this script you need to configure a json-config file which should look like this:
