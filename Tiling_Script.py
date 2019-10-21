@@ -45,7 +45,7 @@ except:
           'tilex and tiley as float or integer, name of outfile as string')
     sys.exit(1)
 #"2015-09-01/2015-12-04", "2016-06-01/2016-08-04"
-"2017-09-01/2017-12-04", "2018-06-01/2018-08-04"
+#"2017-09-01/2017-12-04", "2018-06-01/2018-08-04"
 time_start = time()
 
 # Search for Satellite-Images
@@ -62,6 +62,8 @@ urls_timestep1 = get_urls(image_timestep1)
 urls_timestep2 = get_urls(image_timestep2)
 print(("Got urls"))
 
+print(urls_timestep1[0], urls_timestep2[0])
+print(urls_timestep2[0], urls_timestep2[1])
 
 # if optimal-tiled-calculation was choosen
 if tile_size_x and tile_size_y > 0:

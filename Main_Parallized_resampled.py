@@ -9,7 +9,6 @@
 
 
 from satsearch import Search
-import os
 import sys
 import numpy as np
 import rasterio as rio
@@ -17,7 +16,6 @@ from itertools import product
 from rasterio import windows
 import concurrent.futures
 from rasterio.enums import Resampling
-
 
 
 # search sources
@@ -73,7 +71,8 @@ def get_urls(statsac_item):
     """
     band_urls = []
 
-    # extract the urls for the red and near-infared band of the images for the given date or period of time
+    # extract the urls for the red and near-infared band of the images
+    # for the given date or period of time
     # Check if Landsat or Sentinel
     if 'B4' and 'B5' in statsac_item.assets:
         band_red_ls = statsac_item.assets['B4']['href']
@@ -98,7 +97,7 @@ def calculate_ndvi(red, nir):
     :parameter:
     red band as array
     infared band as array
-    :returns: array with ndvi values"""
+    :returns: Numpy-Array with ndvi values"""
     band_red = red.astype(rio.float32)
     band_nir = nir.astype(rio.float32)
     np.seterr(divide='ignore', invalid='ignore')
@@ -109,7 +108,8 @@ def calculate_ndvi(red, nir):
     # create empty array with the same shape as one of the input arrays
     ndvi = np.empty(nir.shape, dtype=rio.float32)
     check = np.logical_or(band_red > 0, band_nir > 0)
-    # fill the empty array with the calculated ndvi values for each cell where red and nir > 0 otherwise fill up with -2
+    # fill the empty array with the calculated ndvi values for each
+    # cell where red and nir > 0 otherwise fill up with -2
     ndvi = np.where(check, (1.0 * (band_nir - band_red)) / (1.0 * (band_nir + band_red)), -2)
 
     return ndvi
@@ -117,11 +117,13 @@ def calculate_ndvi(red, nir):
 
 def calculate_difference(ndvi_tile1, ndvi_tile2):
     """Calculates the difference between to arrays
-    :parameter: 2 Arrays
+    :parameter: Arrays containing the ndvi value
     :return: Numppy array with difference"""
     tile_1 = ndvi_tile1.astype(rio.float32)
     tile_2 = ndvi_tile2.astype(rio.float32)
+
     ndvi_difference = np.subtract(tile_1, tile_2)
+
     return ndvi_difference
 
 
@@ -145,7 +147,7 @@ def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window):
 
     # calculate ndvi for timestep1
     ndvi_ts_1 = calculate_ndvi(red_block_ts1, nir_block_ts1)
-
+    # open red band and resample window of timestep2
     with rio.open(urls_timestep2[0]) as src_red_ts2_re:
         red_block_ts2_re = src_red_ts2_re.read(window=window,
                                                out_shape=(
@@ -154,7 +156,7 @@ def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window):
                                                     ),
                                                resampling=Resampling.bilinear
                                                )
-
+    # open red band and resample window of timestep2
     with rio.open(urls_timestep2[1]) as src_nir_ts2_re:
         nir_block_ts2_re = src_nir_ts2_re.read(window=window,
                                                out_shape=(
@@ -165,6 +167,7 @@ def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window):
                                                )
     print(red_block_ts2_re.shape)
     print(nir_block_ts2_re.shape)
+    # clalculate ndvi for timestep2
     ndvi_ts_2 = calculate_ndvi(red_block_ts2_re, nir_block_ts2_re)
 
     # check if both arrays have the same size
@@ -172,8 +175,6 @@ def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window):
 
     # calculate difference between timestep1 and 2
     result_block = calculate_difference(ndvi_ts_1, ndvi_ts_2)
-
-
 
     return result_block
 
