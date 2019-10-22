@@ -26,38 +26,81 @@ import multiprocessing as mp
 #    print("Config file does not exist.")
 #    exit()
 
+
 with open('config.json', 'r') as src:
     config = json.load(src)
 
 # Get Parameter from config-file
 try:
     bbox = config['bounding_box']
-    date = config['dates']
+    dates = config['dates']
     property = config['property']
     tile_size_x = config['tilex']
     tile_size_y = config['tiley']
     outfile = config['outfile']
-    num = 4
+    num = config['processors']
 
 except:
     print('Usage of this Script: Boundingbox as int or float, '
           '2 Dates or Range of Dates as string, Property as string,'
           'tilex and tiley as float or integer, name of outfile as string')
     sys.exit(1)
-#"2015-09-01/2015-12-04", "2016-06-01/2016-08-04"
-#"2017-09-01/2017-12-04", "2018-06-01/2018-08-04"
+
+
+# Check if User-Input is correct
+try:
+    date_1 = str(dates[0])
+    date_2 = str(dates[1])
+except ValueError:
+    print('The Dates need to be formatted as string. "YYYY-MM-DD"')
+
+try:
+    coord_1 = float(bbox[0])
+    coord_2 = float(bbox[1])
+    coord_3 = float(bbox[2])
+    coord_4 = float(bbox[3])
+except ValueError:
+    print('The coordinates for the Bounding Box need to be float')
+    sys.exit(1)
+
+try:
+    prop = str(property)
+except ValueError:
+    print('Property needs to be formatted as string. ""eo:cloud_cover<X"')
+    sys.exit(1)
+
+try:
+    tile_x = int(tile_size_x)
+    tile_y = int(tile_size_y)
+except ValueError:
+    print('The tilesize needs to be an integer')
+    sys.exit(1)
+
+try:
+    out = str(outfile)
+except ValueError:
+    print('Outfile needs to be a string with the appendix .tif')
+
+try:
+    processors = int(num)
+except ValueError:
+    print('Processors needs to be an integer')
+    sys.exit(1)
+
+
 time_start = time()
 
 # Search for Satellite-Images
-image_timestep1 = search_image(date[0],
+image_timestep1 = search_image(dates[0],
                                bbox,
                                property)
-image_timestep2 = search_image(date[1],
+image_timestep2 = search_image(dates[1],
                                bbox,
                                property)
 print("Images found")
 
 # Get the URLs of the red and nir Band for both Time steps
+# This is just to inform the user
 urls_timestep1 = get_urls(image_timestep1)
 urls_timestep2 = get_urls(image_timestep2)
 print(("Got urls"))

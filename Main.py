@@ -249,6 +249,11 @@ def customized_tiled_difference(ndvi1, ndvi2, tile_size_x, tile_size_y):
     return difference
 
 
+#"2015-09-01/2015-12-04", "2016-06-01/2016-08-04"
+#"2017-09-01/2017-12-04", "2018-06-01/2018-08-04"
+with rio.open('NDVI.tif', 'r') as src:
+    values = src.read()
+    print('The minimum integer or floating point data type required to represent values is %s. ' % (rio.dtypes.get_minimum_dtype(values)))
 
 
 #    print("The difference of the NDVIs has been calculated. ndvi_difference.tif has been saved in %s")
