@@ -103,7 +103,7 @@ def calculate_difference(ndvi_tile1, ndvi_tile2):
     return ndvi_difference
 
 
-def optimal_tiled_calc(red_timestep_1, nir_timestep_1, red_timestep_2, nir_timestep_2):
+def optimal_tiled_calc_n(red_timestep_1, nir_timestep_1, red_timestep_2, nir_timestep_2):
     """Uses the red and near infared band and calcultes the ndvi in optimal tiled blocks and puts them back together
     resulting in a new raster image
     :parameter: filepath for red band and near infared band
@@ -124,22 +124,11 @@ def optimal_tiled_calc(red_timestep_1, nir_timestep_1, red_timestep_2, nir_times
     # iterate over internal blocks of the bands, calculate ndvi for each block and put them back together
     for block_index, window in src_red_timestep_1.block_windows(1):
         # read Data for Timestep1 and calculate NDVI
-        red_tile_timestep_1 = src_red_timestep_1.read(window=window, masked=True,
-                                                      out_shape=(
-                                                          src_red_timestep_2.height,
-                                                          src_red_timestep_2.width,
-                                                          src_red_timestep_2.count),
-                                                      resampling=Resampling.bilinear
-                                                      )
+        red_tile_timestep_1 = src_red_timestep_1.read(window=window, masked=True)
         print(red_tile_timestep_1.shape)
 
-        nir_tile_timestep_1 = src_nir_timestep_1.read(window=window, masked=True,
-                                                      out_shape=(
-                                                          src_red_timestep_2.height,
-                                                          src_red_timestep_2.width,
-                                                          src_red_timestep_2.count),
-                                                      resampling=Resampling.bilinear
-                                                      )
+        nir_tile_timestep_1 = src_nir_timestep_1.read(window=window, masked=True)
+
         print(nir_tile_timestep_1.shape)
         ndvi_tile_timestep_1 = calculate_ndvi(red_tile_timestep_1, nir_tile_timestep_1)
 
@@ -147,18 +136,18 @@ def optimal_tiled_calc(red_timestep_1, nir_timestep_1, red_timestep_2, nir_times
         red_tile_timestep_2 = src_red_timestep_2.read(window=window,
                                                       masked=True,
                                                       out_shape=(
-                                                          src_red_timestep_2.height,
-                                                          src_red_timestep_2.width,
-                                                          src_red_timestep_2.count),
+                                                          window.height,
+                                                          window.width,
+                                                          ),
                                                       resampling=Resampling.bilinear
                                                       )
         print(red_tile_timestep_1.shape, red_tile_timestep_2.shape)
         nir_tile_timestep_2 = src_nir_timestep_2.read(window=window,
                                                       masked=True,
                                                       out_shape=(
-                                                          src_red_timestep_2.height,
-                                                          src_red_timestep_2.width,
-                                                          src_red_timestep_2.count),
+                                                          window.height,
+                                                          window.width,
+                                                          ),
                                                       resampling=Resampling.bilinear
                                                       )
         ndvi_tile_timestep_2 = calculate_ndvi(red_tile_timestep_2, nir_tile_timestep_2)
@@ -199,13 +188,13 @@ def get_tiles(ds, tile_a, tile_b):
         yield window, transform
 
 
-def customized_tiled_calc(red_timestep_1, nir_timestep_1, red_timestep_2, nir_timestep_2, tile_size_x, tile_size_y):
+def customized_tiled_calcn(red_timestep_1, nir_timestep_1, red_timestep_2, nir_timestep_2, tile_size_x, tile_size_y):
     """Tiles a band into blocks with the dimension of tile_a x tile_b, calculates the ndvi of the blocks and and puts
     them back together resulting in a new raster image
     :parameter: filepath for the red and infared band
     :returns:  raster with the calculated ndvi values """
     # open datasets
-    src_red_timestep_1 = rio.open(red_timestep_1)
+    src_red_timestep_1 = rio.open(red_timestep_1, 'r')
     src_nir_timestep_1 = rio.open(nir_timestep_1, 'r')
     src_red_timestep_2 = rio.open(red_timestep_2, 'r')
     src_nir_timestep_2 = rio.open(nir_timestep_2, 'r')
@@ -227,8 +216,22 @@ def customized_tiled_calc(red_timestep_1, nir_timestep_1, red_timestep_2, nir_ti
         ndvi_tile_timestep_1 = calculate_ndvi(red_tile_timestep_1, nir_tile_timestep_1)
 
         # read Data for Timestep2 and calculate NDVI
-        red_tile_timestep_2 = src_red_timestep_2(window=window, masked=True)
-        nir_tile_timestep_2 = src_nir_timestep_2(window=window, masked=True)
+        red_tile_timestep_2 = src_red_timestep_2(window=window,
+                                                 masked=True,
+                                                 out_shape=(
+                                                     window.height,
+                                                     window.width,
+                                                 ),
+                                                 resampling=Resampling.bilinear
+                                                 )
+        nir_tile_timestep_2 = src_nir_timestep_2(window=window,
+                                                 masked=True,
+                                                 out_shape=(
+                                                     window.height,
+                                                     window.width,
+                                                 ),
+                                                 resampling=Resampling.bilinear
+                                                 )
         ndvi_tile_timestep_2 = calculate_ndvi(red_tile_timestep_2, nir_tile_timestep_2)
 
         # check if both arrays have the same size

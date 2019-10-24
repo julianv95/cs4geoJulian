@@ -95,7 +95,8 @@ def get_urls(statsac_item):
 
 # Concurrent Processing Functions
 def calculate_ndvi(red, nir):
-    """Uses a red and near infared band in array-form to claculate the ndvi
+    """Uses a red and near infared band in array-form to claculate the ndvi.
+    The Output-Array will have the same size/shape as the input array.
     :parameter:
     red band as array
     infared band as array
@@ -129,14 +130,16 @@ def calculate_difference(ndvi_tile1, ndvi_tile2):
     return ndvi_difference
 
 
-def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window):
+def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window, windows, window_idx=0):
     """Calculates the difference of the NDVI
     between to image tiles. In case the two images have a different shape,
     the red and nir band from urls_timestep2 are resampled to the size of
-    the red and nir band from urls_timestep2
+    the red and nir band from urls_timestep1
     :parameter:
     List for each Date containing the urls for the red and nir band,
-    the windows for tiling
+    the window for the current tile,
+    a list of all the windows used for the tiling process
+    and the index of the current window
     :returns: Numpy-Array containing the difference of the two tiles"""
 
     # open red band and read window of timestep1
@@ -147,30 +150,59 @@ def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window):
     with rio.open(urls_timestep1[1]) as src_nir_ts1:
         nir_block_ts1 = src_nir_ts1.read(window=window)
 
-    print(red_block_ts1.shape, nir_block_ts1.shape)
-
     # calculate ndvi for timestep1
     ndvi_ts_1 = calculate_ndvi(red_block_ts1, nir_block_ts1)
     # open red band and resample window of timestep2
-    with rio.open(urls_timestep2[0]) as src_red_ts2_re:
-        red_block_ts2_re = src_red_ts2_re.read(window=window,
-                                               out_shape=(
-                                                window.height,
-                                                window.width,
-                                                ),
-                                               resampling=Resampling.bilinear
-                                               )
-    # open red band and resample window of timestep2
-    with rio.open(urls_timestep2[1]) as src_nir_ts2_re:
-        nir_block_ts2_re = src_nir_ts2_re.read(window=window,
-                                               out_shape=(
-                                                window.height,
-                                                window.width,
-                                                ),
-                                               resampling=Resampling.bilinear
-                                               )
-    print(red_block_ts2_re.shape)
-    print(nir_block_ts2_re.shape)
+
+    try:
+        with rio.open(urls_timestep2[0]) as src_red_ts2_re:
+            red_block_ts2_re = src_red_ts2_re.read(window=window,
+                                                   out_shape=(
+                                                    window.height,
+                                                    window.width,
+                                                    ),
+                                                   resampling=Resampling.bilinear
+                                                   )
+        # open red band and resample window of timestep2
+        with rio.open(urls_timestep2[1]) as src_nir_ts2_re:
+            nir_block_ts2_re = src_nir_ts2_re.read(window=window,
+                                                   out_shape=(
+                                                    window.height,
+                                                    window.width,
+                                                    ),
+                                                   resampling=Resampling.bilinear
+                                                   )
+
+    except rio.RasterioIOError:
+        # Exception for special boundary-cases
+        # Take window before error occured, intersect with datasource boundaries(big_window),
+        # Create new Window with the intersection, read the new window and resample it
+        # to the size of the original window
+
+        with rio.open(urls_timestep2[0]) as src_red_ts2_re:
+            nols, nrows = src_red_ts2_re.meta['width'], src_red_ts2_re.meta['height']
+            big_window = rio.windows.Window(col_off=0, row_off=0, width=nols, height=nrows)
+            window_new = windows[window_idx-1].intersection(big_window)
+            print(window)
+            print(window_new)
+            red_block_ts2_re = src_red_ts2_re.read(window=window_new,
+                                                   out_shape=(
+                                                       window.height,
+                                                       window.width,
+                                                   ),
+                                                   resampling=Resampling.bilinear
+                                                   )
+
+        with rio.open(urls_timestep2[1]) as src_nir_ts2_re:
+            nir_block_ts2_re = src_nir_ts2_re.read(window=window_new,
+                                                   out_shape=(
+                                                    window.height,
+                                                    window.width,
+                                                    ),
+                                                   resampling=Resampling.bilinear
+                                                   )
+
+
     # clalculate ndvi for timestep2
     ndvi_ts_2 = calculate_ndvi(red_block_ts2_re, nir_block_ts2_re)
 
@@ -187,7 +219,8 @@ def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window):
 def optimal_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile, max_workers=1):
     """Process infiles block-by-block, calculate the NDVI for each block,
     and write the difference to a new file. Uses Optimal block-size and
-    concurrent processing.
+    concurrent processing. Uses the internal Blocks of statsac_item_ts1
+    for tiling.
     :parameter:
     Statsac-Item Object of date x,
     Statsac-Item object of date y,
@@ -213,6 +246,7 @@ def optimal_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile, max_workers=
             with rio.open(outfile, "w", **out_profile) as dst:
                 # create windows for tiling
                 tiles = [window for ij, window in dst.block_windows()]
+                counter = 0
 
                 # chunkify(windows):
                 for chunk in [tiles]:
@@ -223,9 +257,11 @@ def optimal_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile, max_workers=
                         future = executor.submit(tiled_cacl_chunky,
                                                  urls_timestep1,
                                                  urls_timestep2,
-                                                 window)
-
+                                                 window,
+                                                 tiles,
+                                                 window_idx=counter)
                         future_to_window[future] = window
+                        counter += 1
 
                     for future in concurrent.futures.as_completed(future_to_window):
                         window = future_to_window[future]
@@ -272,11 +308,9 @@ def get_tiles(dataset, tile_a, tile_b):
         yield window, transform
 
 
-def customized_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile, tile_size_x,
-                          tile_size_y, max_workers=1):
+def customized_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile, tile_size_x, tile_size_y, max_workers=1):
     """Process infiles block-by-block, calculate the NDVI for each block,
-        and write the difference to a new file. Uses custom block-size and
-        concurrent processing.
+        and write the difference to a new file. Uses custom block-size.
         :parameter:
         Statsac-Item Object of date x,
         Statsac-Item object of date y,
@@ -288,7 +322,6 @@ def customized_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile, tile_size
     # get the urls for the red and nir bands for timestep1 and 2
     urls_timestep1 = get_urls(statsac_item_ts1)
     urls_timestep2 = get_urls(statsac_item_ts2)
-
     # start with concurrent processing
     # source: https://gist.github.com/sgillies/b90a79917d7ec5ca0c074b5f6f4857e3.js.
     # This was adapted for the ndvi processing
@@ -303,24 +336,26 @@ def customized_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile, tile_size
             with rio.open(outfile, "w", **out_profile) as dst:
                 # create windows for tiling
                 tiles = []
-
                 for window, transform in get_tiles(src_red, tile_size_x, tile_size_y):
                     out_profile['transform'] = transform
-                    out_profile['width'] = window.width
-                    out_profile['height'] = out_profile['height']
+                    out_profile['width'], out_profile['height'] = window.width, window.height
                     tiles.append(window)
-
                 # chunkify(windows)/ concurrent processing of the tiled_calc_function
+                counter = 0
+
                 for chunk in [tiles]:
-
                     future_to_window = dict()
-
                     for window in chunk:
+
                         future = executor.submit(tiled_cacl_chunky,
                                                  urls_timestep1,
                                                  urls_timestep2,
-                                                 window)
+                                                 window,
+                                                 tiles,
+                                                 window_idx=counter)
+
                         future_to_window[future] = window
+                        counter += 1
 
                     for future in concurrent.futures.as_completed(future_to_window):
                         window = future_to_window[future]

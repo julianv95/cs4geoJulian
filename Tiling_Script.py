@@ -7,6 +7,8 @@
 ###########################################
 
 from Main_Parallized_resampled import *
+from Main2 import optimal_tiled_calc_n
+from Main2 import customized_tiled_calcn
 import json
 import argparse
 import os
@@ -88,7 +90,6 @@ except ValueError:
     sys.exit(1)
 
 
-time_start = time()
 
 # Search for Satellite-Images
 image_timestep1 = search_image(dates[0],
@@ -111,21 +112,44 @@ print(urls_timestep2[0], urls_timestep2[1])
 # if optimal-tiled-calculation was choosen
 if tile_size_x and tile_size_y > 0:
     print('Start with customized image-processing')
+    time_start = time()
+
     customized_tiled_calc(image_timestep1,
-                          image_timestep2,
-                          outfile,
-                          tile_size_x,
-                          tile_size_y,
-                          max_workers=num)
+                         image_timestep2,
+                         outfile,
+                         tile_size_x,
+                         tile_size_y,
+                         max_workers=num)
+    time_end = time()
+    print('The parallelized version took %i seconds' % (time_end - time_start))
+
+    print('The parallelized version took %i seconds' % (time_end - time_start))
+
+    time1 = time()
+    customized_tiled_calcn(urls_timestep1[0], urls_timestep1[1], urls_timestep2[0], urls_timestep2[1], tile_size_x, tile_size_y)
+    time2 = time()
+    print('The normal Version took %i seconds' % (time2 - time1))
+
+
+
 
 # otherwise use custom-tiled-calculation
 else:
     print('Start with optimal image-processing')
+
+    time_start = time()
+
     optimal_tiled_calc(image_timestep1,
                        image_timestep2,
                        outfile,
                        max_workers=num)
 
-time_end = time()
+    time_end = time()
+    print('The parallelized version took %i seconds' % (time_end - time_start))
 
-print('This took %i seconds' % (time_end-time_start))
+    time1 = time()
+    optimal_tiled_calc_n(urls_timestep1[0], urls_timestep1[1], urls_timestep2[0], urls_timestep2[1])
+    time2 = time()
+    print('The normal Version took %i seconds' % (time2-time1))
+
+

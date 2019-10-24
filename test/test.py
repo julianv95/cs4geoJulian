@@ -78,6 +78,30 @@ def test_custom_tile_size():
     assert result == expected
 
 
+def test_input_shape():
+    # Given
+    bounding_box = [8.66744, 49.41217, 8.68465, 49.42278]
+    dates = ["2015-09-01/2015-12-04", "2016-06-01/2016-08-04"]
+    property = "eo:cloud_cover<5"
+
+    # Then
+    image1 = search_image(dates[0], bounding_box, property)
+    image2 = search_image(dates[1], bounding_box, property)
+
+    urls1 = get_urls(image1)
+    urls2 = get_urls(image2)
+
+    with rio.open(urls1[0]) as src:
+        array1 = src.read()
+        expected = array1.shape
+
+    with rio.open(urls2[0]) as src:
+        array2 = src.read()
+        result = array2.shape
+
+    assert expected != result
+
+
 def test_optimal_calc_output():
     # Test for different input shapes
     # Given
@@ -106,7 +130,7 @@ def test_optimal_calc_output():
     assert result == expected
 
 
-def test_optimal_calc_output():
+def test_custom_calc_output():
     # Test for different input shapes
     # Given
     bounding_box = [8.66744, 49.41217, 8.68465, 49.42278]
@@ -134,17 +158,6 @@ def test_optimal_calc_output():
         result = array_out.shape
 
     assert result == expected
-
-
-
-
-
-
-
-
-
-
-
 
 
 nose.main()

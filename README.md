@@ -1,4 +1,4 @@
-# cs4geoJulian
+# cs4geo Julian Vetter
 Tiled NDVI Calculation
 
 This Script calculates the difference of the NDVI of an area of interesst between two different points in time using
