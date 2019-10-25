@@ -211,12 +211,12 @@ def customized_tiled_calcn(red_timestep_1, nir_timestep_1, red_timestep_2, nir_t
         meta['width'], meta['height'] = window.width, window.height
 
         # read Data for Timestep1 and calculate NDVI
-        red_tile_timestep_1 = src_red_timestep_1(window=window, masked=True)
-        nir_tile_timestep_1 = src_nir_timestep_1(window=window, masked=True)
+        red_tile_timestep_1 = src_red_timestep_1.read(window=window, masked=True)
+        nir_tile_timestep_1 = src_nir_timestep_1.read(window=window, masked=True)
         ndvi_tile_timestep_1 = calculate_ndvi(red_tile_timestep_1, nir_tile_timestep_1)
 
         # read Data for Timestep2 and calculate NDVI
-        red_tile_timestep_2 = src_red_timestep_2(window=window,
+        red_tile_timestep_2 = src_red_timestep_2.read(window=window,
                                                  masked=True,
                                                  out_shape=(
                                                      window.height,
@@ -224,7 +224,7 @@ def customized_tiled_calcn(red_timestep_1, nir_timestep_1, red_timestep_2, nir_t
                                                  ),
                                                  resampling=Resampling.bilinear
                                                  )
-        nir_tile_timestep_2 = src_nir_timestep_2(window=window,
+        nir_tile_timestep_2 = src_nir_timestep_2.read(window=window,
                                                  masked=True,
                                                  out_shape=(
                                                      window.height,

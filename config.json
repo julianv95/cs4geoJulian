@@ -2,8 +2,8 @@
   "dates": ["2015-09-01/2015-12-04", "2016-06-01/2016-08-04"],
   "bounding_box": [8.66744, 49.41217, 8.68465, 49.42278],
   "property": "eo:cloud_cover<5",
-    "tilex": 10000,
-    "tiley": 10000,
+    "tilex": 100000,
+    "tiley": 100000,
     "outfile": "NDVI.tif",
   "processors": 4
 }

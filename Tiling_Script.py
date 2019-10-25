@@ -123,7 +123,6 @@ if tile_size_x and tile_size_y > 0:
     time_end = time()
     print('The parallelized version took %i seconds' % (time_end - time_start))
 
-    print('The parallelized version took %i seconds' % (time_end - time_start))
 
     time1 = time()
     customized_tiled_calcn(urls_timestep1[0], urls_timestep1[1], urls_timestep2[0], urls_timestep2[1], tile_size_x, tile_size_y)

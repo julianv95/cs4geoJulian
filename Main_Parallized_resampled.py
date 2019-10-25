@@ -74,6 +74,9 @@ def get_urls(statsac_item):
     # extract the urls for the red and near-infared band of the images
     # for the given date or period of time
     # Check if Landsat or Sentinel
+    # Since the script only works with Landsat-Data, this is not necessary,
+    # but if at some point in time SAT-Search API is fixed,
+    # this is an easy way to implement Sentinel-Data
     if 'B4' and 'B5' in statsac_item.assets:
         band_red_ls = statsac_item.assets['B4']['href']
         band_nir_ls = statsac_item.assets['B5']['href']
@@ -130,7 +133,7 @@ def calculate_difference(ndvi_tile1, ndvi_tile2):
     return ndvi_difference
 
 
-def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window, windows, window_idx=0):
+def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window, window_lst, window_idx=0):
     """Calculates the difference of the NDVI
     between to image tiles. In case the two images have a different shape,
     the red and nir band from urls_timestep2 are resampled to the size of
@@ -182,7 +185,7 @@ def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window, windows, window_id
         with rio.open(urls_timestep2[0]) as src_red_ts2_re:
             nols, nrows = src_red_ts2_re.meta['width'], src_red_ts2_re.meta['height']
             big_window = rio.windows.Window(col_off=0, row_off=0, width=nols, height=nrows)
-            window_new = windows[window_idx-1].intersection(big_window)
+            window_new = window_lst[window_idx-1].intersection(big_window)
             print(window)
             print(window_new)
             red_block_ts2_re = src_red_ts2_re.read(window=window_new,
@@ -272,7 +275,7 @@ def optimal_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile, max_workers=
 
 # Customized Tiles Functions
 def get_tiles(dataset, tile_a, tile_b):
-    """Creates windows for a given Band with the size of
+    """Creates rasterio.windows for a given Band with the size of
     tile_a x tile_b
     :parameter:
     Open Source,
