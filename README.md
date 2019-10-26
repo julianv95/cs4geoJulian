@@ -39,8 +39,7 @@ For now you the only property which is working for this script is cloud coverege
 needs to be formated like this "eo:cloud_cover<5". The % is up to you.
 
 Tilex and Tiley are only relevant if you are interessted in using custom tiled blocks for the
-ndvi-calculation. If you want to use it, you can choose the tile-size in meters with those parameters.
-If you leave it at 0 the optimal-tiled-processing is used as the default.
+ndvi-calculation. If you want to use it, you can choose the tile-size in meters with those parameters. The Tile-Size can't be larger tha the image itself. If you leave it at 0 the optimal-tiled-processing is used as the default.
 
 The outfile should be self explanatory too, just choose a name and add the suffix .tif. 
 
