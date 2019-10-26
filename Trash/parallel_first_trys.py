@@ -1,10 +1,9 @@
 """Concurrent read-process-write example"""
 
 
-from Main2 import *
+from Trash.Main2 import *
 import concurrent.futures
 from itertools import islice
-from time import sleep
 import numpy as np
 from time import time
 import threading
@@ -185,7 +184,6 @@ def tiled_locked(statsac_item, outfile, max_workers=1):
 
 
 if __name__ == "__main__":
-    import sys
     rasteri
 
     bbox = [8.66744, 49.41217, 8.68465, 49.42278]

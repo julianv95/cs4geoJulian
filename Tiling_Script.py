@@ -1,3 +1,4 @@
+"""
 #!/bin/python
 # -*- coding: utf8 -*-
 # Author: J. Vetter, 2019
@@ -5,16 +6,13 @@
 # NDVI of two different points in time using
 # concurrent and tiled image processing.
 ###########################################
+"""
 
-from Main_Parallized_resampled import *
-from Main2 import optimal_tiled_calc_n
-from Main2 import customized_tiled_calcn
+from parallized_resampled import *
+from Trash.Main2 import optimal_tiled_calc_n
+from Trash.Main2 import customized_tiled_calcn
 import json
-import argparse
-import os
 from time import time
-import multiprocessing as mp
-
 
 # Set up argument parser
 #parser = argparse.ArgumentParser()
@@ -115,14 +113,13 @@ if tile_size_x and tile_size_y > 0:
     time_start = time()
 
     customized_tiled_calc(image_timestep1,
-                         image_timestep2,
-                         outfile,
-                         tile_size_x,
-                         tile_size_y,
-                         max_workers=num)
+                          image_timestep2,
+                          outfile,
+                          tile_size_x,
+                          tile_size_y,
+                          max_workers=num)
     time_end = time()
     print('The parallelized version took %i seconds' % (time_end - time_start))
-
 
     time1 = time()
     customized_tiled_calcn(urls_timestep1[0], urls_timestep1[1], urls_timestep2[0], urls_timestep2[1], tile_size_x, tile_size_y)

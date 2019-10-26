@@ -1,3 +1,4 @@
+"""
 #!/bin/python
 # -*- coding: utf8 -*-
 # Author: J. Vetter, 2019
@@ -6,6 +7,7 @@
 # NDVI of two different points in time using
 # concurrent and tiled image processing.
 ###########################################
+"""
 
 
 import sys
@@ -113,10 +115,10 @@ def calculate_ndvi(red, nir):
 
     # create empty array with the same shape as one of the input arrays
     ndvi = np.empty(nir.shape, dtype=rio.float32)
-    check = np.logical_or(band_red > 0, band_nir > 0)
+    search = np.logical_or(band_red > 0, band_nir > 0)
     # fill the empty array with the calculated ndvi values for each
     # cell where red and nir > 0 otherwise fill up with -2
-    ndvi = np.where(check, (1.0 * (band_nir - band_red)) / (1.0 * (band_nir + band_red)), -2)
+    ndvi = np.where(search, (1.0 * (band_nir - band_red)) / (1.0 * (band_nir + band_red)), -2)
 
     return ndvi
 
@@ -162,24 +164,24 @@ def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window, window_lst, window
         with rio.open(urls_timestep2[0]) as src_red_ts2_re:
             red_block_ts2_re = src_red_ts2_re.read(window=window,
                                                    out_shape=(
-                                                    window.height,
-                                                    window.width,
-                                                    ),
+                                                       window.height,
+                                                       window.width)
+                                                   ,
                                                    resampling=Resampling.bilinear
                                                    )
         # open red band and resample window of timestep2
         with rio.open(urls_timestep2[1]) as src_nir_ts2_re:
             nir_block_ts2_re = src_nir_ts2_re.read(window=window,
                                                    out_shape=(
-                                                    window.height,
-                                                    window.width,
-                                                    ),
+                                                       window.height,
+                                                       window.width)
+                                                   ,
                                                    resampling=Resampling.bilinear
                                                    )
 
     except rio.RasterioIOError:
         # Exception for special boundary-cases
-        # Take window before error occured, intersect with datasource boundaries(big_window),
+        # Take window before error occurred, intersect with datasource boundaries(big_window),
         # Create new Window with the intersection, read the new window and resample it
         # to the size of the original window
 
@@ -187,22 +189,21 @@ def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window, window_lst, window
             nols, nrows = src_red_ts2_re.meta['width'], src_red_ts2_re.meta['height']
             big_window = rio.windows.Window(col_off=0, row_off=0, width=nols, height=nrows)
             window_new = window_lst[window_idx-1].intersection(big_window)
-            print(window)
-            print(window_new)
+
             red_block_ts2_re = src_red_ts2_re.read(window=window_new,
                                                    out_shape=(
                                                        window.height,
-                                                       window.width,
-                                                   ),
+                                                       window.width)
+                                                   ,
                                                    resampling=Resampling.bilinear
                                                    )
 
         with rio.open(urls_timestep2[1]) as src_nir_ts2_re:
             nir_block_ts2_re = src_nir_ts2_re.read(window=window_new,
                                                    out_shape=(
-                                                    window.height,
-                                                    window.width,
-                                                    ),
+                                                       window.height,
+                                                       window.width)
+                                                   ,
                                                    resampling=Resampling.bilinear
                                                    )
 
@@ -271,7 +272,6 @@ def optimal_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile, max_workers=
                         window = future_to_window[future]
                         result = future.result()
                         dst.write(result, window=window)
-                        print(dst)
 
 
 # Customized Tiles Functions
@@ -286,8 +286,8 @@ def get_tiles(dataset, tile_a, tile_b):
     rasterio window """
 
     # calculate Width and Height as Distance from Origin
-    x, y = (dataset.bounds.left + tile_a, dataset.bounds.top - tile_b)
-    height, width = dataset.index(x, y)
+    tile_x, tile_y = (dataset.bounds.left + tile_a, dataset.bounds.top - tile_b)
+    height, width = dataset.index(tile_x, tile_y)
 
     # get max rows and cols of dataset
     nols, nrows = dataset.meta['width'], dataset.meta['height']
@@ -312,7 +312,8 @@ def get_tiles(dataset, tile_a, tile_b):
         yield window, transform
 
 
-def customized_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile, tile_size_x, tile_size_y, max_workers=1):
+def customized_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile,
+                          tile_size_x, tile_size_y, max_workers=1):
     """Process infiles block-by-block, calculate the NDVI for each block,
         and write the difference to a new file. Uses custom block-size.
         :parameter:
@@ -365,4 +366,3 @@ def customized_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile, tile_size
                         window = future_to_window[future]
                         result = future.result()
                         dst.write(result, window=window)
-                        print(dst)

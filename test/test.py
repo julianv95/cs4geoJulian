@@ -1,10 +1,10 @@
 import numpy as np
-from Main_Parallized_resampled import calculate_ndvi
-from Main_Parallized_resampled import search_image
-from Main_Parallized_resampled import get_urls
-from Main_Parallized_resampled import optimal_tiled_calc
-from Main_Parallized_resampled import get_tiles
-from Main_Parallized_resampled import customized_tiled_calc
+from parallized_resampled import calculate_ndvi
+from parallized_resampled import search_image
+from parallized_resampled import get_urls
+from parallized_resampled import optimal_tiled_calc
+from parallized_resampled import get_tiles
+from parallized_resampled import customized_tiled_calc
 import rasterio as rio
 import nose
 

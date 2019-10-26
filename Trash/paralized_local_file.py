@@ -1,10 +1,9 @@
 """Concurrent read-process-write test with local file"""
 
 
-from Main2 import *
+from Trash.Main2 import *
 import concurrent.futures
 from itertools import islice
-from time import sleep
 import numpy as np
 
 import rasterio
