@@ -2,7 +2,7 @@
 # -*- coding: utf8 -*-
 # Author: J. Vetter, 2019
 # Script containing the functions to
-# calculating the difference between the
+# calculate the difference between the
 # NDVI of two different points in time using
 # concurrent and tiled image processing.
 ###########################################
@@ -22,7 +22,7 @@ from satsearch import Search
 def search_image(date, bounding_box, prop):
     """Searches Satellite-Image for given Boundingbox, Date and Properties
     :parameter:
-    singel Date,
+    single Date,
     Bounding Box as List
     Properties as String
     :return:
@@ -31,7 +31,7 @@ def search_image(date, bounding_box, prop):
 
     image = []
 
-    # search image for given date or periode of time,
+    # search image for given date or period of time,
     # always takes the first image
     search = Search(bbox=bounding_box,
                     datetime=date,
@@ -61,17 +61,17 @@ def search_image(date, bounding_box, prop):
 
 
 def get_urls(statsac_item):
-    """Searches for the URLS of satellite-images for given date
+    """Searches for the URLS of satellite-images
     :parameter:
     satsac.Item Object
     :returns:
-    List of URLS containing the red and near infared
+    List of URLS containing the red and near infrared
     Bands of the satellite-images.
     Order: RED, NIR
     """
     band_urls = []
 
-    # extract the urls for the red and near-infared band of the images
+    # extract the urls for the red and near-infrared band of the images
     # for the given date or period of time
     # Check if Landsat or Sentinel
     # Since the script only works with Landsat-Data, this is not necessary,
@@ -88,7 +88,7 @@ def get_urls(statsac_item):
         band_urls.append(band_red_se)
         band_urls.append(band_nir_se)
     else:
-        print('No red or near infared Band available')
+        print('No red or near infrared Band available')
         sys.exit(1)
     assert len(band_urls) == 2, 'No Red or Nir-Band found. ' \
                                 'Please check the sources or try ' \
@@ -98,11 +98,11 @@ def get_urls(statsac_item):
 
 # Concurrent Processing Functions
 def calculate_ndvi(red, nir):
-    """Uses a red and near infared band in array-form to claculate the ndvi.
+    """Uses a red and near infrared band in array-form to calculate the ndvi.
     The Output-Array will have the same size/shape as the input array.
     :parameter:
     red band as array
-    infared band as array
+    infrared band as array
     :returns: Numpy-Array with ndvi values"""
     band_red = red.astype(rio.float32)
     band_nir = nir.astype(rio.float32)
@@ -139,11 +139,12 @@ def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window, window_lst, window
     the red and nir band from urls_timestep2 are resampled to the size of
     the red and nir band from urls_timestep1
     :parameter:
-    List for each Date containing the urls for the red and nir band,
+    List for each Date containing the urls of the red and nir band,
     the window for the current tile,
     a list of all the windows used for the tiling process
     and the index of the current window
-    :returns: Numpy-Array containing the difference of the two tiles"""
+    :returns:
+    Numpy-Array containing the difference of the two tiles"""
 
     # open red band and read window of timestep1
     with rio.open(urls_timestep1[0]) as src_red_ts1:
