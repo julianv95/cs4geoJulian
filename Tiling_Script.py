@@ -8,11 +8,13 @@
 ###########################################
 """
 
+
+import json
+from time import time
 from parallized_resampled import *
 from Trash.Main2 import optimal_tiled_calc_n
 from Trash.Main2 import customized_tiled_calcn
-import json
-from time import time
+
 
 # Set up argument parser
 #parser = argparse.ArgumentParser()
@@ -147,5 +149,3 @@ else:
     optimal_tiled_calc_n(urls_timestep1[0], urls_timestep1[1], urls_timestep2[0], urls_timestep2[1])
     time2 = time()
     print('The normal Version took %i seconds' % (time2-time1))
-
-
