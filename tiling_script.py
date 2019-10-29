@@ -8,25 +8,31 @@
 ###########################################
 """
 
-
+import os
+import sys
 import json
+import argparse
 from time import time
-from parallized_resampled import *
-from Trash.Main2 import optimal_tiled_calc_n
-from Trash.Main2 import customized_tiled_calcn
+from parallized_resampled import search_image
+from parallized_resampled import get_urls
+from parallized_resampled import optimal_tiled_calc
+from parallized_resampled import customized_tiled_calc
+
 
 
 # Set up argument parser
-#parser = argparse.ArgumentParser()
-#parser.add_argument("-c", "--config", dest="config_file",
-#                    help="configuration file", metavar="CONFIGFILE")
-#args = parser.parse_args()
+PARSER = argparse.ArgumentParser()
+PARSER.add_argument("-c", "--config",
+                    dest="config_file",
+                    help="configuration file",
+                    metavar="CONFIGFILE")
+ARGS = PARSER.parse_args()
 
 # Parse configuration parameters to dict
-#config_file = args.config_file
-#if config_file is None or not os.path.exists(config_file):
-#    print("Config file does not exist.")
-#    exit()
+CONFIG_FILE = ARGS.config_file
+if CONFIG_FILE is None or not os.path.exists(CONFIG_FILE):
+    print("Config file does not exist.")
+    exit()
 
 
 with open('config.json', 'r') as src:
@@ -36,7 +42,7 @@ with open('config.json', 'r') as src:
 try:
     bbox = config['bounding_box']
     dates = config['dates']
-    property = config['property']
+    prop = config['property']
     tile_size_x = config['tilex']
     tile_size_y = config['tiley']
     outfile = config['outfile']
@@ -94,10 +100,10 @@ except ValueError:
 # Search for Satellite-Images
 image_timestep1 = search_image(dates[0],
                                bbox,
-                               property)
+                               prop)
 image_timestep2 = search_image(dates[1],
                                bbox,
-                               property)
+                               prop)
 print("Images found")
 
 # Get the URLs of the red and nir Band for both Time steps
@@ -106,13 +112,10 @@ urls_timestep1 = get_urls(image_timestep1)
 urls_timestep2 = get_urls(image_timestep2)
 print(("Got urls"))
 
-print(urls_timestep1[0], urls_timestep2[0])
-print(urls_timestep2[0], urls_timestep2[1])
 
 # if optimal-tiled-calculation was choosen
 if tile_size_x and tile_size_y > 0:
     print('Start with customized image-processing')
-    time_start = time()
 
     customized_tiled_calc(image_timestep1,
                           image_timestep2,
@@ -121,12 +124,8 @@ if tile_size_x and tile_size_y > 0:
                           tile_size_y,
                           max_workers=num)
     time_end = time()
-    print('The parallelized version took %i seconds' % (time_end - time_start))
 
-    time1 = time()
-    customized_tiled_calcn(urls_timestep1[0], urls_timestep1[1], urls_timestep2[0], urls_timestep2[1], tile_size_x, tile_size_y)
-    time2 = time()
-    print('The normal Version took %i seconds' % (time2 - time1))
+
 
 
 
@@ -135,17 +134,10 @@ if tile_size_x and tile_size_y > 0:
 else:
     print('Start with optimal image-processing')
 
-    time_start = time()
-
     optimal_tiled_calc(image_timestep1,
                        image_timestep2,
                        outfile,
                        max_workers=num)
 
-    time_end = time()
-    print('The parallelized version took %i seconds' % (time_end - time_start))
-
-    time1 = time()
-    optimal_tiled_calc_n(urls_timestep1[0], urls_timestep1[1], urls_timestep2[0], urls_timestep2[1])
-    time2 = time()
-    print('The normal Version took %i seconds' % (time2-time1))
+CWD = os.getcwd()
+print('The file has been saved in %s' % CWD)
