@@ -12,12 +12,10 @@ import os
 import sys
 import json
 import argparse
-from time import time
 from parallized_resampled import search_image
 from parallized_resampled import get_urls
 from parallized_resampled import optimal_tiled_calc
 from parallized_resampled import customized_tiled_calc
-
 
 
 # Set up argument parser
@@ -35,18 +33,18 @@ if CONFIG_FILE is None or not os.path.exists(CONFIG_FILE):
     exit()
 
 
-with open('config.json', 'r') as src:
-    config = json.load(src)
+with open('CONFIG.json', 'r') as src:
+    CONFIG = json.load(src)
 
 # Get Parameter from config-file
 try:
-    bbox = config['bounding_box']
-    dates = config['dates']
-    prop = config['property']
-    tile_size_x = config['tilex']
-    tile_size_y = config['tiley']
-    outfile = config['outfile']
-    num = config['processors']
+    BBOX = CONFIG['bounding_box']
+    DATES = CONFIG['dates']
+    PROP = CONFIG['property']
+    TILE_SIZE_X = CONFIG['tilex']
+    TILE_SIZE_Y = CONFIG['tiley']
+    OUTFILE = CONFIG['outfile']
+    NUM = CONFIG['processors']
 
 except:
     print('Usage of this Script: Boundingbox as int or float, '
@@ -55,89 +53,86 @@ except:
     sys.exit(1)
 
 
+
 # Check if User-Input is correct
 try:
-    date_1 = str(dates[0])
-    date_2 = str(dates[1])
+    DATE_1 = str(DATES[0])
+    DATE_2 = str(DATES[1])
 except ValueError:
     print('The Dates need to be formatted as string. "YYYY-MM-DD"')
 
 try:
-    coord_1 = float(bbox[0])
-    coord_2 = float(bbox[1])
-    coord_3 = float(bbox[2])
-    coord_4 = float(bbox[3])
+    COORD_1 = float(BBOX[0])
+    COORD_2 = float(BBOX[1])
+    COORD_3 = float(BBOX[2])
+    COORD_4 = float(BBOX[3])
 except ValueError:
     print('The coordinates for the Bounding Box need to be float')
     sys.exit(1)
 
 try:
-    prop = str(property)
+    PROPE = str(PROP)
 except ValueError:
     print('Property needs to be formatted as string. ""eo:cloud_cover<X"')
     sys.exit(1)
 
 try:
-    tile_x = int(tile_size_x)
-    tile_y = int(tile_size_y)
+    TILE_X = int(TILE_SIZE_X)
+    TILE_Y = int(TILE_SIZE_Y)
 except ValueError:
     print('The tilesize needs to be an integer')
     sys.exit(1)
 
 try:
-    out = str(outfile)
+    OUT = str(OUTFILE)
 except ValueError:
     print('Outfile needs to be a string with the appendix .tif')
 
 try:
-    processors = int(num)
+    PROCESSORS = int(NUM)
 except ValueError:
     print('Processors needs to be an integer')
     sys.exit(1)
 
 
-
 # Search for Satellite-Images
-image_timestep1 = search_image(dates[0],
-                               bbox,
-                               prop)
-image_timestep2 = search_image(dates[1],
-                               bbox,
-                               prop)
+IMAGE_TIMESTEP_1 = search_image(DATES[0],
+                                BBOX,
+                                PROP)
+IMAGE_TIMESTEP_2 = search_image(DATES[1],
+                                BBOX,
+                                PROP)
 print("Images found")
+
 
 # Get the URLs of the red and nir Band for both Time steps
 # This is just to inform the user
-urls_timestep1 = get_urls(image_timestep1)
-urls_timestep2 = get_urls(image_timestep2)
+URLS_TIMESTEP_1 = get_urls(IMAGE_TIMESTEP_1)
+URLS_TIMESTEP_2 = get_urls(IMAGE_TIMESTEP_2)
 print(("Got urls"))
 
 
 # if optimal-tiled-calculation was choosen
-if tile_size_x and tile_size_y > 0:
+if TILE_SIZE_X and TILE_SIZE_Y > 0:
     print('Start with customized image-processing')
 
-    customized_tiled_calc(image_timestep1,
-                          image_timestep2,
-                          outfile,
-                          tile_size_x,
-                          tile_size_y,
-                          max_workers=num)
-    time_end = time()
-
-
-
-
+    customized_tiled_calc(IMAGE_TIMESTEP_1,
+                          IMAGE_TIMESTEP_2,
+                          OUTFILE,
+                          TILE_SIZE_X,
+                          TILE_SIZE_Y,
+                          max_workers=NUM)
 
 
 # otherwise use custom-tiled-calculation
 else:
     print('Start with optimal image-processing')
 
-    optimal_tiled_calc(image_timestep1,
-                       image_timestep2,
-                       outfile,
-                       max_workers=num)
+    optimal_tiled_calc(IMAGE_TIMESTEP_1,
+                       IMAGE_TIMESTEP_2,
+                       OUTFILE,
+                       max_workers=NUM)
+
 
 CWD = os.getcwd()
 print('The file has been saved in %s' % CWD)
