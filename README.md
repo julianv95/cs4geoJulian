@@ -4,7 +4,7 @@
 This Script calculates the difference of the NDVI of an area of interest between two different points in time using
 concurrent and tiled image processing. To prevent any environment issues it's recommended to use the Conda-Environment provided in the repository. The script is runnable from the command line.
 
-python my_program.py -o config_file.json
+python tiling_script.py -o config_file.json
 
 
 To use this script you need to configure a json-config file which should look like this:
@@ -52,3 +52,5 @@ It searches for Landsat-images with the lowest cloud-coverage for the given Date
 uses the image of the first point in time as source for the outfile. Meaning in case the two satellite images
 have a different size (shape) the image of the second point in time is resampled with bilinear interpolation
 to match the shape of the first image. The Outfile will be created in the same directory as the script.
+Considering the NDVI Calculation it's important to note, that if the nir and red band both have the value 0 for a pixel the corresponding
+pixel in the ndvi-array will be assigned the value -2 and not 0.
