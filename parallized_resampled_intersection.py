@@ -151,62 +151,42 @@ def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window, window_lst, window
     # open red band and read window of timestep1
     with rio.open(urls_timestep1[0]) as src_red_ts1:
         red_block_ts1 = src_red_ts1.read(window=window)
+        bounds_red = src_red_ts1.window_bounds(window)
 
     # open nir band and read window of timestep1
     with rio.open(urls_timestep1[1]) as src_nir_ts1:
         nir_block_ts1 = src_nir_ts1.read(window=window)
 
+    try:
+        with rio.open(urls_timestep2[0]) as src_red_ts2_re:
+            window2 = src_red_ts2_re.window(*bounds_red)
+            red_block_ts2_re = src_red_ts2_re.read(window=window2,
+                                                   out_shape=(
+                                                    window.height,
+                                                    window.width)
+                                                   ,
+                                                   resampling=Resampling.bilinear
+                                                   )
+
+        with rio.open(urls_timestep2[1]) as src_nir_ts2_re:
+            nir_block_ts2_re = src_nir_ts2_re.read(window=window2,
+                                                   out_shape=(
+                                                       window.height,
+                                                       window.width)
+                                                   ,
+                                                   resampling=Resampling.bilinear
+                                                   )
+    except rio.RasterioIOError:
+        sys.exit(1)
+        print('The Sattelite-Images were only partly overlapping'
+              'The NDVI-Difference has been calculation for the '
+              'intersection')
+
+
+
     # calculate ndvi for timestep1
     ndvi_ts_1 = calculate_ndvi(red_block_ts1, nir_block_ts1)
     # open red band and resample window of timestep2
-
-    try:
-        with rio.open(urls_timestep2[0]) as src_red_ts2_re:
-            red_block_ts2_re = src_red_ts2_re.read(window=window,
-                                                   out_shape=(
-                                                       window.height,
-                                                       window.width)
-                                                   ,
-                                                   resampling=Resampling.bilinear
-                                                   )
-        # open red band and resample window of timestep2
-        with rio.open(urls_timestep2[1]) as src_nir_ts2_re:
-            nir_block_ts2_re = src_nir_ts2_re.read(window=window,
-                                                   out_shape=(
-                                                       window.height,
-                                                       window.width)
-                                                   ,
-                                                   resampling=Resampling.bilinear
-                                                   )
-
-    except rio.RasterioIOError:
-        # Exception for special boundary-cases
-        # Take window before error occurred, intersect with datasource boundaries(big_window),
-        # Create new Window with the intersection, read the new window and resample it
-        # to the size of the original window
-
-
-        with rio.open(urls_timestep2[0]) as src_red_ts2_re:
-            nols, nrows = src_red_ts2_re.meta['width'], src_red_ts2_re.meta['height']
-            big_window = rio.windows.Window(col_off=0, row_off=0, width=nols, height=nrows)
-            window_new = window_lst[window_idx-1].intersection(big_window)
-
-            red_block_ts2_re = src_red_ts2_re.read(window=window_new,
-                                                   out_shape=(
-                                                       window.height,
-                                                       window.width)
-                                                   ,
-                                                   resampling=Resampling.bilinear
-                                                   )
-
-        with rio.open(urls_timestep2[1]) as src_nir_ts2_re:
-            nir_block_ts2_re = src_nir_ts2_re.read(window=window_new,
-                                                   out_shape=(
-                                                       window.height,
-                                                       window.width)
-                                                   ,
-                                                   resampling=Resampling.bilinear
-                                                   )
 
 
     # clalculate ndvi for timestep2
@@ -273,6 +253,7 @@ def optimal_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile, max_workers=
                         window = future_to_window[future]
                         result = future.result()
                         dst.write(result, window=window)
+                        print(dst)
 
 
 # Customized Tiles Functions

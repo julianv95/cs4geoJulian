@@ -13,10 +13,10 @@ import sys
 import json
 import argparse
 from time import time
-from parallized_resampled import search_image
-from parallized_resampled import get_urls
-from parallized_resampled import optimal_tiled_calc
-from parallized_resampled import customized_tiled_calc
+from parallized_resampled_intersection import search_image
+from parallized_resampled_intersection import get_urls
+from parallized_resampled_intersection import optimal_tiled_calc
+from parallized_resampled_intersection import customized_tiled_calc
 
 
 # Set up argument parser
@@ -109,6 +109,8 @@ print("Images found")
 # This is just to inform the user
 URLS_TIMESTEP_1 = get_urls(IMAGE_TIMESTEP_1)
 URLS_TIMESTEP_2 = get_urls(IMAGE_TIMESTEP_2)
+print(URLS_TIMESTEP_1[0], URLS_TIMESTEP_1[1])
+print(URLS_TIMESTEP_2[0], URLS_TIMESTEP_2[1])
 print(("Got urls"))
 
 
