@@ -6,8 +6,9 @@ concurrent and tiled image processing. To prevent any environment issues it's re
 
 python tiling_script.py -o config_file.json
 
+There are 2 scripts in this repository, tiling_script.py and tiling_script_intersection.py. The API used for the Image-Search-Function sometimes returns only marginally overlapping images for the area of interest. If thats the case it's recommended to use the latter script, which calculates the ndvi-difference for the intersection of the two images. This is necessary because tiling_script.py would interpolate the missing bits which would lead to an inaccurate result.
 
-To use this script you need to configure a json-config file which should look like this:
+To use either script you need to configure a json-config file which should look like this:
 
 '''
 {
@@ -46,11 +47,15 @@ The outfile should be self explanatory too: Just choose a name and add the suffi
 With processors you can choose the number of processing-units which will be used for the concurrent
 processing. 
 
-#The script operates as follows:
+#The tiling_sricpt.py operates as follows:
 
 It searches for Landsat-images with the lowest cloud-coverage for the given Dates. The script always
 uses the image of the first point in time as source for the outfile. Meaning in case the two satellite images
 have a different size (shape) the image of the second point in time is resampled with bilinear interpolation
 to match the shape of the first image. The Outfile will be created in the same directory as the script.
-Considering the NDVI Calculation it's important to note, that if the nir and red band both have the value 0 for a pixel the corresponding
+Considering the NDVI Calculation it's important to note, that if the nir and red band both have the value 0 for a pixel, the corresponding
 pixel in the ndvi-array will be assigned the value -2 and not 0.
+
+#tiling_script_intersection operates as follows:
+
+Basically the scripts operates in a similar way as tiling_script.py. The difference is that it only calculates the ndvi-difference for the intersection of the two Landsat-images. The rest of the ouput.tif will be filled up with the value 10. Considering the NDVI Calculation it's important to note too, that if the nir and red band both have the value 0 for a pixel, the corresponding pixel in the ndvi-array will be assigned the value -2 and not 0.
