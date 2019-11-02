@@ -18,6 +18,7 @@ import rasterio as rio
 from rasterio import windows
 from rasterio.enums import Resampling
 from satsearch import Search
+from rasterio import warp
 
 
 # search sources
@@ -118,7 +119,7 @@ def calculate_ndvi(red, nir):
     search = np.logical_or(band_red > 0, band_nir > 0)
     # fill the empty array with the calculated ndvi values for each
     # cell where red and nir > 0 otherwise fill up with -2
-    ndvi = np.where(search, (1.0 * (band_nir - band_red)) / (1.0 * (band_nir + band_red)), -2)
+    ndvi = np.where(search, (1.0 * (band_nir - band_red)) / (1.0 * (band_nir + band_red)), 0)
 
     return ndvi
 
@@ -151,7 +152,6 @@ def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window, window_lst, window
     # open red band and read window of timestep1
     with rio.open(urls_timestep1[0]) as src_red_ts1:
         red_block_ts1 = src_red_ts1.read(window=window)
-        bounds_red = src_red_ts1.window_bounds(window)
 
     # open nir band and read window of timestep1
     with rio.open(urls_timestep1[1]) as src_nir_ts1:
@@ -159,11 +159,14 @@ def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window, window_lst, window
 
     try:
         with rio.open(urls_timestep2[0]) as src_red_ts2_re:
-            window2 = src_red_ts2_re.window(*bounds_red)
+
+            bounds = src_red_ts1.window_bounds(window)
+            window2 = src_red_ts2_re.window(*bounds)
+
             red_block_ts2_re = src_red_ts2_re.read(window=window2,
                                                    out_shape=(
-                                                    window.height,
-                                                    window.width)
+                                                       window.height,
+                                                       window.width)
                                                    ,
                                                    resampling=Resampling.bilinear
                                                    )
@@ -176,27 +179,27 @@ def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window, window_lst, window
                                                    ,
                                                    resampling=Resampling.bilinear
                                                    )
+
+            # calculate ndvi for timestep1
+            ndvi_ts_1 = calculate_ndvi(red_block_ts1, nir_block_ts1)
+            # open red band and resample window of timestep2
+
+            # clalculate ndvi for timestep2
+            ndvi_ts_2 = calculate_ndvi(red_block_ts2_re, nir_block_ts2_re)
+
+            # check if both arrays have the same size
+            assert ndvi_ts_1.shape == ndvi_ts_2.shape, 'The NDVI Shapes do not match'
+
+            # calculate difference between timestep1 and 2
+            result_block = calculate_difference(ndvi_ts_1, ndvi_ts_2)
+
     except rio.RasterioIOError:
-        sys.exit(1)
         print('The Sattelite-Images were only partly overlapping'
               'The NDVI-Difference has been calculation for the '
               'intersection')
+        #fill up the parts outside of the intersection
 
-
-
-    # calculate ndvi for timestep1
-    ndvi_ts_1 = calculate_ndvi(red_block_ts1, nir_block_ts1)
-    # open red band and resample window of timestep2
-
-
-    # clalculate ndvi for timestep2
-    ndvi_ts_2 = calculate_ndvi(red_block_ts2_re, nir_block_ts2_re)
-
-    # check if both arrays have the same size
-    assert ndvi_ts_1.shape == ndvi_ts_2.shape, 'The NDVI Shapes do not match'
-
-    # calculate difference between timestep1 and 2
-    result_block = calculate_difference(ndvi_ts_1, ndvi_ts_2)
+        result_block = np.full(red_block_ts1.shape, 10, dtype=rio.float32)
 
     return result_block
 
@@ -232,6 +235,14 @@ def optimal_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile, max_workers=
             with rio.open(outfile, "w", **out_profile) as dst:
                 # create windows for tiling
                 tiles = [window for ij, window in dst.block_windows()]
+                with rio.open(urls_timestep2[0]) as src_red_ts2:
+                    window_matched = []
+
+                    for tile in tiles:
+                        bounds_red = src_red.window_bounds(tile)
+                        window2 = src_red_ts2.window(*bounds_red)
+                        window_matched.append([tile, window2])
+
                 counter = 0
 
                 # chunkify(windows):
@@ -244,7 +255,7 @@ def optimal_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile, max_workers=
                                                  urls_timestep1,
                                                  urls_timestep2,
                                                  window,
-                                                 tiles,
+                                                 window_matched,
                                                  window_idx=counter)
                         future_to_window[future] = window
                         counter += 1
@@ -253,7 +264,6 @@ def optimal_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile, max_workers=
                         window = future_to_window[future]
                         result = future.result()
                         dst.write(result, window=window)
-                        print(dst)
 
 
 # Customized Tiles Functions

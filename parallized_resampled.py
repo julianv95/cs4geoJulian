@@ -18,6 +18,8 @@ import rasterio as rio
 from rasterio import windows
 from rasterio.enums import Resampling
 from satsearch import Search
+from rasterio import warp
+
 
 
 # search sources
@@ -118,7 +120,7 @@ def calculate_ndvi(red, nir):
     search = np.logical_or(band_red > 0, band_nir > 0)
     # fill the empty array with the calculated ndvi values for each
     # cell where red and nir > 0 otherwise fill up with -2
-    ndvi = np.where(search, (1.0 * (band_nir - band_red)) / (1.0 * (band_nir + band_red)), -2)
+    ndvi = np.where(search, (1.0*(band_nir - band_red)) / (1.0*(band_nir + band_red)), 2)
 
     return ndvi
 
@@ -169,6 +171,7 @@ def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window, window_lst, window
                                                    ,
                                                    resampling=Resampling.bilinear
                                                    )
+
         # open red band and resample window of timestep2
         with rio.open(urls_timestep2[1]) as src_nir_ts2_re:
             nir_block_ts2_re = src_nir_ts2_re.read(window=window,
@@ -184,7 +187,6 @@ def tiled_cacl_chunky(urls_timestep1, urls_timestep2, window, window_lst, window
         # Take window before error occurred, intersect with datasource boundaries(big_window),
         # Create new Window with the intersection, read the new window and resample it
         # to the size of the original window
-
 
         with rio.open(urls_timestep2[0]) as src_red_ts2_re:
             nols, nrows = src_red_ts2_re.meta['width'], src_red_ts2_re.meta['height']
@@ -310,6 +312,7 @@ def get_tiles(dataset, tile_a, tile_b):
                                 width=width,
                                 height=height).intersection(big_window)
         transform = windows.transform(window, dataset.transform)
+
         yield window, transform
 
 
@@ -366,4 +369,5 @@ def customized_tiled_calc(statsac_item_ts1, statsac_item_ts2, outfile,
                     for future in concurrent.futures.as_completed(future_to_window):
                         window = future_to_window[future]
                         result = future.result()
+
                         dst.write(result, window=window)

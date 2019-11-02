@@ -19,19 +19,19 @@ from parallized_resampled import optimal_tiled_calc
 from parallized_resampled import customized_tiled_calc
 
 
-# Set up argument parser
-#PARSER = argparse.ArgumentParser()
-#PARSER.add_argument("-c", "--config",
-#                    dest="config_file",
-#                    help="configuration file",
-#                    metavar="CONFIGFILE")
-#ARGS = PARSER.parse_args()
+#Set up argument parser
+PARSER = argparse.ArgumentParser()
+PARSER.add_argument("-c", "--config",
+                    dest="config_file",
+                    help="configuration file",
+                    metavar="CONFIGFILE")
+ARGS = PARSER.parse_args()
 
 # Parse configuration parameters to dict
-#CONFIG_FILE = ARGS.config_file
-#if CONFIG_FILE is None or not os.path.exists(CONFIG_FILE):
-#    print("Config file does not exist.")
-#    exit()
+CONFIG_FILE = ARGS.config_file
+if CONFIG_FILE is None or not os.path.exists(CONFIG_FILE):
+    print("Config file does not exist.")
+    exit()
 
 
 with open('CONFIG.json', 'r') as src:
@@ -104,6 +104,14 @@ IMAGE_TIMESTEP_2 = search_image(DATES[1],
                                 PROP)
 print("Images found")
 
+print("This script is not exact if the images are only marginally"
+      + " " + "overlapping. Please check the overlapping degree in a GIS Program")
+
+print("Image of Timestep_1:", IMAGE_TIMESTEP_1.assets)
+print("Image of Timestep_1:", IMAGE_TIMESTEP_2.assets)
+
+print("If the images are only marginally overlapping tiling_script_intersection.py" +
+      " " + "might be better suited for your analysis.")
 
 # Get the URLs of the red and nir Band for both Time steps
 # This is just to inform the user

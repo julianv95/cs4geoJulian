@@ -20,18 +20,18 @@ from parallized_resampled_intersection import customized_tiled_calc
 
 
 # Set up argument parser
-#PARSER = argparse.ArgumentParser()
-#PARSER.add_argument("-c", "--config",
-#                    dest="config_file",
-#                    help="configuration file",
-#                    metavar="CONFIGFILE")
-#ARGS = PARSER.parse_args()
+PARSER = argparse.ArgumentParser()
+PARSER.add_argument("-c", "--config",
+                    dest="config_file",
+                    help="configuration file",
+                    metavar="CONFIGFILE")
+ARGS = PARSER.parse_args()
 
 # Parse configuration parameters to dict
-#CONFIG_FILE = ARGS.config_file
-#if CONFIG_FILE is None or not os.path.exists(CONFIG_FILE):
-#    print("Config file does not exist.")
-#    exit()
+CONFIG_FILE = ARGS.config_file
+if CONFIG_FILE is None or not os.path.exists(CONFIG_FILE):
+    print("Config file does not exist.")
+    exit()
 
 
 with open('CONFIG.json', 'r') as src:
@@ -134,7 +134,8 @@ else:
     print('Start with optimal image-processing')
     TIME_3 = time()
 
-    optimal_tiled_calc(IMAGE_TIMESTEP_1,
+    optimal_tiled_calc(
+                       IMAGE_TIMESTEP_1,
                        IMAGE_TIMESTEP_2,
                        OUTFILE,
                        max_workers=NUM)
