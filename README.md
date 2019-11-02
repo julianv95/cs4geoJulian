@@ -1,12 +1,11 @@
 # cs4geo Julian Vetter
 #Tiled NDVI Calculation
 
-This Script calculates the difference of the NDVI of an area of interest between two different points in time using
-concurrent and tiled image processing. To prevent any environment issues it's recommended to use the Conda-Environment provided in the repository. The script is runnable from the command line.
+The scripts provided in this repository calculate the difference of the NDVI of an area of interest between two different points in time using concurrent and tiled image processing. To prevent any environment issues it's recommended to use the Conda-Environment provided in the repository. The scripts are runnable from the command line.
 
 python tiling_script.py -o config_file.json
 
-There are 2 scripts in this repository, tiling_script.py and tiling_script_intersection.py. The API used for the Image-Search-Function sometimes returns only marginally overlapping images for the area of interest. If thats the case it's recommended to use the latter script, which calculates the ndvi-difference for the intersection of the two images. This is necessary because tiling_script.py would interpolate the missing bits which would lead to an inaccurate result.
+There are 2 scripts in this repository, tiling_script.py and tiling_script_intersection.py. The API used for the Image-Search-Function sometimes returns only marginally overlapping images for the area of interest. If thats the case it's recommended to use the latter script, which calculates the ndvi-difference for the intersection of the two images. This is necessary because tiling_script.py would interpolate the missing bits which would lead to an inaccurate result (only if there is to less overhang). To check wheter the images are only marginally overlapping you need to download the landsat-images of both timesteps and look at them in a GIS-program. If you run tiling_script.py the sources for the landsat-images will be printed in the console and you can download them from there. 
 
 To use either script you need to configure a json-config file which should look like this:
 
@@ -56,6 +55,6 @@ to match the shape of the first image. The Outfile will be created in the same d
 Considering the NDVI Calculation it's important to note, that if the nir and red band both have the value 0 for a pixel, the corresponding
 pixel in the ndvi-array will be assigned the value -2 and not 0.
 
-#tiling_script_intersection operates as follows:
+#tiling_script_intersection.py operates as follows:
 
-Basically the scripts operates in a similar way as tiling_script.py. The difference is that it only calculates the ndvi-difference for the intersection of the two Landsat-images. The rest of the ouput.tif will be filled up with the value 10. Considering the NDVI Calculation it's important to note too, that if the nir and red band both have the value 0 for a pixel, the corresponding pixel in the ndvi-array will be assigned the value -2 and not 0.
+Basically the scripts operates in a similar way as tiling_script.py. The difference is that it only calculates the ndvi-difference for the intersection of the two Landsat-images. The rest of the ouput.tif will be filled up with the value 10. Considering the NDVI Calculation it's important to note, that if the nir and red band both have the value 0 for a pixel, the corresponding pixel in the ndvi-array will be assigned the value -2 and not 0. Furthermore it's important to say that the intersection is not 100% accurate and there will be some overhead which is not part of the intersection. But it should at least give an indication about the ndvi-difference in the inersecting areas.
