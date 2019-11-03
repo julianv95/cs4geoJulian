@@ -119,7 +119,7 @@ def calculate_ndvi(red, nir):
     search = np.logical_or(band_red > 0, band_nir > 0)
     # fill the empty array with the calculated ndvi values for each
     # cell where red and nir > 0 otherwise fill up with -2
-    ndvi = np.where(search, (1.0 * (band_nir - band_red)) / (1.0 * (band_nir + band_red)), 0)
+    ndvi = np.where(search, (1.0 * (band_nir - band_red)) / (1.0 * (band_nir + band_red)), -2)
 
     return ndvi
 
